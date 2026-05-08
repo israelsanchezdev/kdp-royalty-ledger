@@ -36,8 +36,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Cormorant Garamond',seri
 /* SETTINGS DRAWER */
 #settings-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;}
 #settings-overlay.on{display:block;}
-#settings-drawer{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:100vw;background:var(--surf);border-left:1px solid var(--bord);z-index:201;overflow-y:auto;padding:28px 28px 40px;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}
-#settings-drawer.on{transform:none;}
+#settings-drawer{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:100vw;background:var(--surf);border-left:1px solid var(--bord);z-index:201;overflow-y:auto;padding:28px 28px 40px;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);pointer-events:none;}
+#settings-drawer.on{transform:none;pointer-events:auto;}
 .close-btn{position:absolute;top:18px;right:18px;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;padding:4px;}
 .close-btn:hover{color:var(--txt);}
 .drawer-title{font-size:24px;font-weight:300;margin-bottom:3px;}
