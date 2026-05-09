@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KDP Tracker — Royalty Analytics for Indie Authors</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#080810;--surf:#0f0f1a;--card:#141422;--bord:#1e1e30;
+  --gold:#c9a44a;--gold2:#e8c87a;--gold-dim:rgba(201,164,74,.1);
+  --txt:#f0ebe0;--muted:#6e6c88;--dim:#2a2840;
+  --green:#34d399;--red:#f87171;
+}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;overflow-x:hidden;line-height:1.6;}
+::selection{background:var(--gold-dim);color:var(--gold2);}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
+
+/* ── NOISE TEXTURE OVERLAY ── */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.4;
+}
+
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:18px 60px;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(8,8,16,.8);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo-mark{width:28px;height:28px;background:var(--gold);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:#1a1400;}
+.nav-logo-txt{font-family:'Playfair Display',serif;font-size:18px;color:var(--txt);}
+.nav-links{display:flex;align-items:center;gap:32px;}
+.nav-link{color:var(--muted);text-decoration:none;font-size:14px;font-weight:400;transition:color .2s;}
+.nav-link:hover{color:var(--txt);}
+.nav-cta{background:var(--gold);color:#1a1400;border:none;border-radius:7px;padding:9px 22px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;transition:all .2s;white-space:nowrap;}
+.nav-cta:hover{background:var(--gold2);transform:translateY(-1px);}
+
+/* ── HERO ── */
+#hero{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:120px 60px 80px;text-align:center;position:relative;overflow:hidden;
+}
+.hero-glow{
+  position:absolute;top:20%;left:50%;transform:translateX(-50%);
+  width:700px;height:400px;
+  background:radial-gradient(ellipse,rgba(201,164,74,.12) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;
+  color:var(--gold);text-transform:uppercase;
+  background:var(--gold-dim);border:1px solid rgba(201,164,74,.25);
+  padding:6px 16px;border-radius:100px;margin-bottom:32px;
+  animation:fadeUp .6s ease both;
+}
+.hero-eyebrow::before{content:'';width:6px;height:6px;background:var(--gold);border-radius:50%;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.hero-h1{
+  font-family:'Playfair Display',serif;font-size:clamp(48px,7vw,88px);
+  font-weight:900;line-height:1.05;letter-spacing:-2px;
+  margin-bottom:12px;
+  animation:fadeUp .6s .1s ease both;
+}
+.hero-h1 em{font-style:italic;color:var(--gold);}
+.hero-h1 .line2{display:block;font-weight:400;font-style:italic;color:var(--gold2);}
+
+.hero-sub{
+  font-size:18px;font-weight:300;color:var(--muted);
+  max-width:520px;margin:0 auto 44px;line-height:1.7;
+  animation:fadeUp .6s .2s ease both;
+}
+.hero-sub strong{color:var(--txt);font-weight:500;}
+
+.hero-actions{
+  display:flex;align-items:center;gap:16px;justify-content:center;flex-wrap:wrap;
+  animation:fadeUp .6s .3s ease both;
+}
+.btn-primary{
+  background:var(--gold);color:#1a1400;border:none;border-radius:8px;
+  padding:14px 32px;font-size:16px;font-weight:500;cursor:pointer;
+  text-decoration:none;transition:all .25s;display:inline-block;
+}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-2px);box-shadow:0 12px 40px rgba(201,164,74,.3);}
+.btn-ghost{
+  background:none;color:var(--muted);border:1px solid var(--bord);border-radius:8px;
+  padding:14px 32px;font-size:16px;cursor:pointer;text-decoration:none;transition:all .2s;
+}
+.btn-ghost:hover{border-color:var(--gold);color:var(--txt);}
+.hero-note{font-size:13px;color:var(--muted);margin-top:16px;font-family:'JetBrains Mono',monospace;animation:fadeUp .6s .4s ease both;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── DASHBOARD PREVIEW ── */
+.dash-preview{
+  width:100%;max-width:960px;margin:64px auto 0;
+  border-radius:16px;overflow:hidden;
+  border:1px solid var(--bord);
+  box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04);
+  animation:fadeUp .8s .5s ease both;
+  background:var(--surf);
+}
+.dash-titlebar{
+  background:var(--card);padding:12px 18px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--bord);
+}
+.dot{width:10px;height:10px;border-radius:50%;}
+.dot.r{background:#f87171;}
+.dot.y{background:#fbbf24;}
+.dot.g{background:#34d399;}
+.dash-url{flex:1;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+.dash-body{padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.mock-kpi{background:var(--card);border:1px solid var(--bord);border-radius:8px;padding:14px;}
+.mock-kpi-l{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;}
+.mock-kpi-v{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;}
+.mock-kpi-v.gold{color:var(--gold);}
+.mock-kpi-s{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);margin-top:4px;}
+.dash-chart-row{padding:0 20px 20px;display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+.mock-chart{background:var(--card);border:1px solid var(--bord);border-radius:8px;padding:14px;height:120px;position:relative;overflow:hidden;}
+.mock-chart-title{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;}
+.mock-bars{display:flex;align-items:flex-end;gap:5px;height:72px;}
+.mock-bar{flex:1;border-radius:3px 3px 0 0;background:var(--gold);opacity:.3;transition:opacity .2s;}
+.mock-bar.hi{opacity:.9;}
+.mock-bar.med{opacity:.6;}
+.mock-aliases{display:flex;flex-direction:column;gap:8px;padding:10px 0;}
+.mock-alias{display:flex;align-items:center;justify-content:space-between;}
+.mock-alias-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.mock-alias-name{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:9px;}
+.mock-alias-val{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);}
+
+/* ── TRUST BAR ── */
+.trust-bar{
+  border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);
+  padding:20px 60px;display:flex;align-items:center;justify-content:center;gap:48px;
+  flex-wrap:wrap;background:var(--surf);
+}
+.trust-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);}
+.trust-item .icon{font-size:18px;}
+.trust-item strong{color:var(--txt);font-weight:500;}
+
+/* ── PRIVACY SECTION ── */
+#privacy{padding:100px 60px;max-width:1100px;margin:0 auto;}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:16px;}
+.section-h2{font-family:'Playfair Display',serif;font-size:clamp(32px,4vw,52px);font-weight:700;line-height:1.15;margin-bottom:20px;}
+.section-h2 em{font-style:italic;color:var(--gold);}
+
+.privacy-split{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:60px;}
+.privacy-text p{font-size:17px;color:var(--muted);line-height:1.8;margin-bottom:20px;}
+.privacy-text p strong{color:var(--txt);}
+.compare-table{background:var(--card);border:1px solid var(--bord);border-radius:12px;overflow:hidden;}
+.compare-row{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--bord);}
+.compare-row:last-child{border-bottom:none;}
+.compare-row.header{background:var(--surf);}
+.compare-cell{padding:14px 16px;font-size:13px;}
+.compare-cell.label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+.compare-cell.head{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+.compare-cell.head.us{color:var(--gold);}
+.yes{color:var(--green);}
+.no{color:var(--red);}
+.na{color:var(--muted);}
+
+/* ── FEATURES ── */
+#features{padding:100px 60px;max-width:1100px;margin:0 auto;}
+.features-header{margin-bottom:60px;}
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.feature-card{
+  background:var(--card);border:1px solid var(--bord);border-radius:12px;
+  padding:28px;transition:border-color .25s,transform .25s;
+  position:relative;overflow:hidden;
+}
+.feature-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  opacity:0;transition:opacity .25s;
+}
+.feature-card:hover{border-color:rgba(201,164,74,.3);transform:translateY(-3px);}
+.feature-card:hover::before{opacity:1;}
+.feature-icon{font-size:28px;margin-bottom:16px;}
+.feature-title{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;margin-bottom:10px;}
+.feature-desc{font-size:14px;color:var(--muted);line-height:1.7;}
+.feature-badge{
+  display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9px;
+  letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:3px;
+  margin-top:12px;background:rgba(52,211,153,.1);color:var(--green);
+  border:1px solid rgba(52,211,153,.2);
+}
+
+/* ── UNIQUE FEATURES ── */
+#unique{
+  padding:100px 60px;background:var(--surf);
+  border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);
+}
+.unique-inner{max-width:1100px;margin:0 auto;}
+.unique-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:48px;}
+.unique-card{background:var(--bg);border:1px solid var(--bord);border-radius:10px;padding:22px;}
+.unique-icon{font-size:24px;margin-bottom:12px;}
+.unique-title{font-size:15px;font-weight:500;margin-bottom:7px;}
+.unique-desc{font-size:13px;color:var(--muted);line-height:1.65;}
+.coming-soon{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-top:10px;display:block;}
+
+/* ── PRICING ── */
+#pricing{padding:100px 60px;max-width:700px;margin:0 auto;text-align:center;}
+.price-card{
+  background:var(--card);border:1px solid var(--gold);border-radius:20px;
+  padding:52px;margin-top:48px;position:relative;overflow:hidden;
+}
+.price-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+}
+.price-badge{
+  display:inline-block;background:var(--gold);color:#1a1400;
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;padding:5px 14px;border-radius:100px;margin-bottom:20px;
+}
+.price-amount{
+  font-family:'Playfair Display',serif;font-size:72px;font-weight:900;
+  color:var(--gold);line-height:1;margin-bottom:4px;
+}
+.price-period{font-size:16px;color:var(--muted);margin-bottom:32px;}
+.price-features{list-style:none;text-align:left;margin-bottom:36px;display:flex;flex-direction:column;gap:12px;}
+.price-features li{display:flex;align-items:center;gap:10px;font-size:15px;}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;font-size:14px;flex-shrink:0;}
+.price-note{font-size:13px;color:var(--muted);margin-top:16px;font-family:'JetBrains Mono',monospace;}
+
+/* ── FINAL CTA ── */
+#cta{
+  padding:120px 60px;text-align:center;position:relative;overflow:hidden;
+}
+#cta::before{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:600px;height:600px;
+  background:radial-gradient(ellipse,rgba(201,164,74,.08) 0%,transparent 70%);
+  pointer-events:none;
+}
+#cta .section-h2{font-size:clamp(36px,5vw,64px);}
+
+/* ── FOOTER ── */
+footer{
+  border-top:1px solid var(--bord);padding:40px 60px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+}
+.footer-logo{font-family:'Playfair Display',serif;font-size:17px;color:var(--muted);}
+.footer-links{display:flex;gap:24px;}
+.footer-link{color:var(--muted);text-decoration:none;font-size:13px;transition:color .2s;}
+.footer-link:hover{color:var(--txt);}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  nav{padding:16px 24px;}
+  #hero{padding:100px 24px 60px;}
+  .dash-preview{display:none;}
+  .trust-bar{padding:20px 24px;gap:24px;}
+  #privacy,#features,#unique,#pricing,#cta{padding:60px 24px;}
+  .privacy-split{grid-template-columns:1fr;}
+  .feature-grid{grid-template-columns:1fr 1fr;}
+  .unique-grid{grid-template-columns:1fr 1fr;}
+  footer{padding:32px 24px;}
+}
+@media(max-width:580px){
+  .feature-grid,.unique-grid{grid-template-columns:1fr;}
+  .nav-links .nav-link{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-mark">K</div>
+    <span class="nav-logo-txt">KDP Tracker</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+    <a href="login.html" class="nav-link">Log In</a>
+    <a href="login.html#signup" class="nav-cta">Start Free Trial</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-eyebrow">
+    <span></span> Built for indie authors with multiple pen names
+  </div>
+  <h1 class="hero-h1">
+    Your royalties.<br>
+    <span class="line2">Finally clear.</span>
+  </h1>
+  <p class="hero-sub">
+    Beautiful analytics for Amazon KDP authors — across every pen name, every book, every marketplace.
+    <strong>Without ever handing over your Amazon login.</strong>
+  </p>
+  <div class="hero-actions">
+    <a href="login.html#signup" class="btn-primary">Start Free Trial</a>
+    <a href="#features" class="btn-ghost">See Features</a>
+  </div>
+  <p class="hero-note">No credit card · 14-day free trial · $5/month after</p>
+
+  <!-- MOCK DASHBOARD PREVIEW -->
+  <div class="dash-preview">
+    <div class="dash-titlebar">
+      <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+      <div class="dash-url">app.kdptracker.com · Overview</div>
+    </div>
+    <div class="dash-body">
+      <div class="mock-kpi"><div class="mock-kpi-l">Total Earnings</div><div class="mock-kpi-v gold">$3,847.22</div><div class="mock-kpi-s">3 months</div></div>
+      <div class="mock-kpi"><div class="mock-kpi-l">Units Sold</div><div class="mock-kpi-v">1,284</div><div class="mock-kpi-s">14 titles</div></div>
+      <div class="mock-kpi"><div class="mock-kpi-l">KENP Pages</div><div class="mock-kpi-v">284,910</div><div class="mock-kpi-s">Kindle Unlimited</div></div>
+      <div class="mock-kpi"><div class="mock-kpi-l">Top Pen Name</div><div class="mock-kpi-v" style="font-size:16px;padding-top:4px">Cal Merritt</div><div class="mock-kpi-s">$1,922.10 total</div></div>
+    </div>
+    <div class="dash-chart-row">
+      <div class="mock-chart">
+        <div class="mock-chart-title">Monthly Earnings</div>
+        <div class="mock-bars">
+          <div class="mock-bar med" style="height:45%"></div>
+          <div class="mock-bar med" style="height:60%"></div>
+          <div class="mock-bar hi" style="height:100%"></div>
+        </div>
+      </div>
+      <div class="mock-chart">
+        <div class="mock-chart-title">By Pen Name</div>
+        <div class="mock-aliases">
+          <div class="mock-alias"><div style="display:flex;align-items:center;gap:6px"><div class="mock-alias-dot" style="background:#c9a44a"></div><span class="mock-alias-name">Cal Merritt</span></div><span class="mock-alias-val">$1,922</span></div>
+          <div class="mock-alias"><div style="display:flex;align-items:center;gap:6px"><div class="mock-alias-dot" style="background:#7b61ff"></div><span class="mock-alias-name">Jack Drake</span></div><span class="mock-alias-val">$1,104</span></div>
+          <div class="mock-alias"><div style="display:flex;align-items:center;gap:6px"><div class="mock-alias-dot" style="background:#34d399"></div><span class="mock-alias-name">M.K. Calder</span></div><span class="mock-alias-val">$821</span></div>
+          <div class="mock-alias"><div style="display:flex;align-items:center;gap:6px"><div class="mock-alias-dot" style="background:#e87c6a"></div><span class="mock-alias-name">J.V. Thorne</span></div><span class="mock-alias-val">$0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-item"><span class="icon">🔒</span><span><strong>No Amazon login required</strong> — ever</span></div>
+  <div class="trust-item"><span class="icon">📁</span><span><strong>Raw files never leave your browser</strong></span></div>
+  <div class="trust-item"><span class="icon">✍️</span><span><strong>Built for multi-pen-name authors</strong></span></div>
+  <div class="trust-item"><span class="icon">☁️</span><span><strong>Access from any device</strong></span></div>
+</div>
+
+<!-- PRIVACY -->
+<section id="privacy">
+  <div class="section-eyebrow">Privacy First</div>
+  <h2 class="section-h2">They want your<br><em>Amazon login.</em><br>We don't.</h2>
+  <div class="privacy-split">
+    <div class="privacy-text">
+      <p>Most analytics tools require you to <strong>hand over your Amazon credentials</strong> or grant third-party access to your KDP account. That means a company you've never met has full visibility into your sales, your pen names, your strategy.</p>
+      <p>KDP Tracker works differently. You download your monthly royalty report directly from Amazon — the same file you already have — and upload the numbers. <strong>Your raw data is parsed in your browser and never touches our servers.</strong></p>
+      <p>Only the extracted numbers get stored, encrypted, in your private cloud vault. Your Excel files disappear the moment the numbers are read.</p>
+    </div>
+    <div class="compare-table">
+      <div class="compare-row header">
+        <div class="compare-cell head"></div>
+        <div class="compare-cell head us">KDP Tracker</div>
+        <div class="compare-cell head">Competitors</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">Amazon login required</div>
+        <div class="compare-cell yes">✓ Never</div>
+        <div class="compare-cell no">✗ Required</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">Raw files stored on server</div>
+        <div class="compare-cell yes">✓ Never</div>
+        <div class="compare-cell no">✗ Often yes</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">Multi-pen-name support</div>
+        <div class="compare-cell yes">✓ Built for it</div>
+        <div class="compare-cell na">~ Partial</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">KDP-focused simplicity</div>
+        <div class="compare-cell yes">✓ Yes</div>
+        <div class="compare-cell no">✗ Bloated</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell label">Starting price</div>
+        <div class="compare-cell yes">✓ $5/mo</div>
+        <div class="compare-cell no">✗ $15–40/mo</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="features-header">
+    <div class="section-eyebrow">Features</div>
+    <h2 class="section-h2">Everything an indie author<br><em>actually needs.</em></h2>
+  </div>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">✍️</div>
+      <div class="feature-title">Pen Name Analytics</div>
+      <div class="feature-desc">See earnings, units, KENP, and trends broken down by each pen name. Understand which alias is growing and which needs attention.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📈</div>
+      <div class="feature-title">Month-over-Month Growth</div>
+      <div class="feature-desc">Visual growth cards for every month — total earnings, percentage change, and your best month highlighted automatically.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <div class="feature-title">Book-Level Performance</div>
+      <div class="feature-desc">Sortable table of every title across all pen names. Filter by alias, sort by royalty, units, or KENP. See each book's share of your total income.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌍</div>
+      <div class="feature-title">Marketplace Breakdown</div>
+      <div class="feature-desc">Which Amazon marketplace is driving your sales? US, UK, DE, CA — see the split clearly so you know where your readers are.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📖</div>
+      <div class="feature-title">KENP Tracking</div>
+      <div class="feature-desc">Kindle Unlimited pages tracked separately from paid sales so you understand your true Kindle Unlimited income over time.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">☁️</div>
+      <div class="feature-title">Sync Across Devices</div>
+      <div class="feature-desc">Your data lives in a private cloud vault. Upload on your laptop, check on your phone — always in sync, always available.</div>
+    </div>
+  </div>
+</section>
+
+<!-- UNIQUE / COMING SOON -->
+<section id="unique">
+  <div class="unique-inner">
+    <div class="section-eyebrow">On the Roadmap</div>
+    <h2 class="section-h2">Features your other tools<br><em>don't have.</em></h2>
+    <div class="unique-grid">
+      <div class="unique-card">
+        <div class="unique-icon">🎯</div>
+        <div class="unique-title">Genre Performance</div>
+        <div class="unique-desc">Tag each book by genre. See which genres earn most across all your aliases. Decide what to write next with actual data.</div>
+        <span class="coming-soon">Coming Soon</span>
+      </div>
+      <div class="unique-card">
+        <div class="unique-icon">📊</div>
+        <div class="unique-title">Series Read-Through</div>
+        <div class="unique-desc">What % of Book 1 buyers buy Book 2? Track read-through across your series to know which ones to continue.</div>
+        <span class="coming-soon">Coming Soon</span>
+      </div>
+      <div class="unique-card">
+        <div class="unique-icon">🧾</div>
+        <div class="unique-title">Tax Estimator</div>
+        <div class="unique-desc">Rough quarterly self-employment tax estimate based on your earnings. No more surprise tax bills.</div>
+        <span class="coming-soon">Coming Soon</span>
+      </div>
+      <div class="unique-card">
+        <div class="unique-icon">📔</div>
+        <div class="unique-title">Event Journal</div>
+        <div class="unique-desc">Log when you changed a cover, ran a promo, or got a BookBub feature. See the before/after directly on your earnings charts.</div>
+        <span class="coming-soon">Coming Soon</span>
+      </div>
+      <div class="unique-card">
+        <div class="unique-icon">🎯</div>
+        <div class="unique-title">Goal Tracker</div>
+        <div class="unique-desc">Set monthly earnings targets per pen name. Track progress and stay motivated.</div>
+        <span class="coming-soon" style="background:rgba(201,164,74,.1);color:var(--gold);border-color:rgba(201,164,74,.3)">Available Now</span>
+      </div>
+      <div class="unique-card">
+        <div class="unique-icon">🏷️</div>
+        <div class="unique-title">Genre Tagging</div>
+        <div class="unique-desc">Tag your books by genre and instantly see which genres are your most profitable across all pen names.</div>
+        <span class="coming-soon" style="background:rgba(201,164,74,.1);color:var(--gold);border-color:rgba(201,164,74,.3)">Available Now</span>
+      </div>
+      <div class="unique-card">
+        <div class="unique-icon">📤</div>
+        <div class="unique-title">Tax Export</div>
+        <div class="unique-desc">Generate a clean annual PDF summary of all earnings, formatted for your accountant or tax software.</div>
+        <span class="coming-soon">Coming Soon</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="section-eyebrow">Pricing</div>
+  <h2 class="section-h2">Simple.<br><em>Honest.</em> Affordable.</h2>
+  <div class="price-card">
+    <div class="price-badge">All Access</div>
+    <div class="price-amount">$5</div>
+    <div class="price-period">per month · cancel anytime</div>
+    <ul class="price-features">
+      <li>Unlimited pen names & books</li>
+      <li>Unlimited monthly report uploads</li>
+      <li>Full analytics dashboard — all tabs</li>
+      <li>Private cloud sync across all devices</li>
+      <li>Month-over-month growth tracking</li>
+      <li>KENP & marketplace breakdowns</li>
+      <li>Export JSON backups anytime</li>
+      <li>Every new feature as it ships</li>
+    </ul>
+    <a href="login.html#signup" class="btn-primary" style="display:block;text-align:center;font-size:17px;padding:16px;">Start Free 14-Day Trial</a>
+    <p class="price-note">No card required to start · $5/month after trial</p>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section id="cta">
+  <div class="section-eyebrow">Get Started</div>
+  <h2 class="section-h2">Stop guessing.<br><em>Start knowing.</em></h2>
+  <p style="color:var(--muted);font-size:17px;max-width:440px;margin:20px auto 40px;line-height:1.7;">Your books are working. You deserve to know exactly how hard.</p>
+  <a href="login.html#signup" class="btn-primary" style="font-size:17px;padding:16px 40px;">Start Free Trial — No Card Required</a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">KDP Tracker</div>
+  <div class="footer-links">
+    <a href="#features" class="footer-link">Features</a>
+    <a href="#pricing" class="footer-link">Pricing</a>
+    <a href="login.html" class="footer-link">Log In</a>
+    <a href="#" class="footer-link">Privacy Policy</a>
+  </div>
+  <div class="footer-copy">© 2026 KDP Tracker. All rights reserved.</div>
+</footer>
+
+<script>
+// Smooth scroll for nav links
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    const target=document.querySelector(a.getAttribute('href'));
+    if(target){e.preventDefault();target.scrollIntoView({behavior:'smooth',block:'start'});}
+  });
+});
+
+// Nav shadow on scroll
+window.addEventListener('scroll',()=>{
+  document.querySelector('nav').style.boxShadow=
+    window.scrollY>20?'0 4px 40px rgba(0,0,0,.4)':'none';
+});
+
+// Animate elements on scroll
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){e.target.style.opacity='1';e.target.style.transform='translateY(0)';}
+  });
+},{threshold:0.1});
+document.querySelectorAll('.feature-card,.unique-card,.price-card').forEach(el=>{
+  el.style.opacity='0';el.style.transform='translateY(20px)';
+  el.style.transition='opacity .5s ease, transform .5s ease';
+  observer.observe(el);
+});
+</script>
+</body>
+</html>

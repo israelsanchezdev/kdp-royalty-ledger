@@ -16,6 +16,12 @@
   --txt:#f0ebe0;--muted:#7c7a98;--dim:#3a3758;--r:8px;
   --green:#34d399;--red:#f87171;--blue:#60a5fa;
 }
+[data-theme="light"]{
+  --bg:#f5f4f0;--surf:#ffffff;--card:#faf9f7;--bord:#e2ddd8;
+  --gold:#a07c28;--gold-dim:rgba(160,124,40,.08);--gold-border:rgba(160,124,40,.3);
+  --txt:#1a1714;--muted:#7a736a;--dim:#c8c2bc;--r:8px;
+  --green:#16a34a;--red:#dc2626;--blue:#2563eb;
+}
 html,body{height:100%;}
 body{background:var(--bg);color:var(--txt);font-family:'Cormorant Garamond',serif;min-height:100vh;}
 ::-webkit-scrollbar{width:4px;height:4px;}
@@ -162,6 +168,51 @@ tbody td{padding:10px 12px;vertical-align:middle;}
 .a-sl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
 .a-sv{font-family:'JetBrains Mono',monospace;font-size:13px;}
 
+/* Genre tagging */
+.genre-tag{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  padding:2px 8px;border-radius:100px;cursor:pointer;
+  border:1px solid var(--bord);color:var(--muted);
+  background:var(--card);transition:all .15s;white-space:nowrap;
+}
+.genre-tag.assigned{border-color:var(--gold-border);color:var(--gold);background:var(--gold-dim);}
+.genre-input{
+  background:var(--card);border:1px solid var(--bord);color:var(--txt);
+  border-radius:6px;padding:4px 8px;font-family:'JetBrains Mono',monospace;
+  font-size:11px;outline:none;width:120px;transition:border-color .2s;
+}
+.genre-input:focus{border-color:var(--gold-border);}
+
+/* Goal tracker */
+.goal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:20px;}
+.goal-card{background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:18px;position:relative;}
+.goal-card.achieved{border-color:rgba(52,211,153,.3);}
+.goal-name{font-size:15px;font-weight:400;margin-bottom:4px;}
+.goal-period{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+.goal-bar-wrap{height:6px;background:var(--bord);border-radius:3px;margin-bottom:8px;overflow:hidden;}
+.goal-bar{height:100%;border-radius:3px;background:var(--gold);transition:width .6s ease;}
+.goal-bar.achieved{background:var(--green);}
+.goal-stats{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;}
+.goal-earned{color:var(--txt);}
+.goal-pct{color:var(--muted);}
+.goal-pct.achieved{color:var(--green);}
+.goal-set-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bord);}
+.goal-set-input{
+  flex:1;background:var(--bg);border:1px solid var(--bord);color:var(--txt);
+  border-radius:5px;padding:5px 8px;font-family:'JetBrains Mono',monospace;
+  font-size:11px;outline:none;
+}
+.goal-set-input:focus{border-color:var(--gold-border);}
+.goal-set-btn{
+  background:var(--gold-dim);border:1px solid var(--gold-border);color:var(--gold);
+  border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;
+  font-size:10px;cursor:pointer;white-space:nowrap;transition:background .2s;
+}
+.goal-set-btn:hover{background:rgba(201,164,74,.2);}
+.goal-overall{background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:20px;margin-bottom:16px;}
+.goal-overall-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;}
+
 /* Reports list */
 .report-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bord);gap:12px;}
 .report-row:last-child{border-bottom:none;}
@@ -253,6 +304,7 @@ create policy "allow_all" on kdp_reports
     <div class="tbr">
       <span class="meta" id="meta">—</span>
       <label><input type="file" accept=".xlsx,.xls" multiple style="display:none" id="add-fi"><span class="add-btn">+ Add Reports</span></label>
+      <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle light/dark">🌙</button>
       <button class="icon-btn" onclick="openSettings()" title="Settings">⚙</button>
     </div>
   </div>
@@ -262,6 +314,8 @@ create policy "allow_all" on kdp_reports
     <button class="tab-btn" data-tab="aliases">Pen Names</button>
     <button class="tab-btn" data-tab="books">Books</button>
     <button class="tab-btn" data-tab="trends">Trends</button>
+    <button class="tab-btn" data-tab="genres">Genres</button>
+    <button class="tab-btn" data-tab="goals">Goals</button>
   </div>
 
   <div class="main">
@@ -314,6 +368,45 @@ create policy "allow_all" on kdp_reports
       <div class="cc"><div class="cc-title">KENP Pages Over Time</div><div class="leg" id="leg-tk"></div><div style="position:relative;width:100%;height:250px;"><canvas id="ch-tk"></canvas></div></div>
     </div>
 
+    <!-- GENRES -->
+    <div class="tab-pane" id="tab-genres">
+      <div class="cc" style="margin-bottom:16px;">
+        <div class="cc-title">Genre Tagging</div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:0;line-height:1.7;">Tag each book with a genre to see which categories earn the most. Click a preset or type your own.</p>
+      </div>
+      <div class="chart-row" style="margin-bottom:16px;">
+        <div class="cc" style="margin-bottom:0">
+          <div class="cc-title">Earnings by Genre</div>
+          <div class="leg" id="leg-genre"></div>
+          <div style="position:relative;width:100%;height:200px;"><canvas id="ch-genre-bar"></canvas></div>
+        </div>
+        <div class="cc" style="margin-bottom:0">
+          <div class="cc-title">Genre Share</div>
+          <div style="position:relative;width:100%;height:240px;"><canvas id="ch-genre-pie"></canvas></div>
+        </div>
+      </div>
+      <div class="cc" style="padding:0;overflow:hidden;">
+        <table>
+          <thead><tr><th>Title</th><th>Pen Name</th><th>Genre</th><th>Earnings</th></tr></thead>
+          <tbody id="genre-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- GOALS -->
+    <div class="tab-pane" id="tab-goals">
+      <div class="goal-overall">
+        <div class="goal-overall-h">Overall Monthly Goal</div>
+        <div id="goal-overall-content"></div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;">Per Pen Name — Most Recent Month</div>
+      <div class="goal-grid" id="goal-grid"></div>
+      <div class="cc" style="margin-top:16px;">
+        <div class="cc-title">Monthly Earnings vs Goal</div>
+        <div style="position:relative;width:100%;height:220px;"><canvas id="ch-goal-history"></canvas></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -324,6 +417,7 @@ const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
 const SK='kdp_v3',SK_SB='kdp_sb_config';
 let S={sheets:[],agg:null,filter:'All',sort:'earn'};
 let CH={},SB=null;
+let genres={},goals={};
 
 const $$=id=>document.getElementById(id);
 const loading=(on,txt='Loading...')=>{$$('loading').classList.toggle('on',on);$$('loading-txt').textContent=txt;};
@@ -491,37 +585,51 @@ async function deleteReport(filename){
 }
 
 /* ── KDP PARSER ── */
-// Key fix: collapse all whitespace variants (handles 'Cal  Merritt' double-space in KDP exports)
+// Collapse all whitespace variants — fixes 'Cal  Merritt' double-space in KDP exports
 function normStr(s){return String(s||'').replace(/[\u00a0\u2000-\u200b\u202f\u205f\s]+/g,' ').trim();}
 
 function parseMonthFromFilename(name){
+  // KDP filename pattern: KDP_Prior_Month_Royalties-2026-04-01-...xlsx
   const m=name.match(/(\d{4})-(\d{2})-\d{2}/);
   if(m)return new Date(+m[1],+m[2]-1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
   return new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
 }
 
+/*
+  Amazon KDP Prior Month Royalties format:
+  Row 0: ['Sales Period', 'April 2026', null, ...]   ← metadata, month in cell B1
+  Row 1: ['Title','Author','ASIN/ISBN','Marketplace','Units Sold','Units Refunded',
+          'Net Units Sold or KENP Read**','Royalty Type','Payout Plan','Currency',...,'Earnings']
+  Best sheet: 'Total Earnings' (combines eBook + KENP + Paperback + Hardcover)
+*/
 function parseKDP(buf,filename){
   const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
-  const sheetName=wb.SheetNames.includes('Total Earnings')?'Total Earnings':wb.SheetNames[0];
-  const ws=wb.Sheets[sheetName];
-  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  if(!raw||raw.length<2)return null;
 
-  // Row 0: ['Sales Period', 'April 2026', ...]  → month in cell B1
+  if(!wb.SheetNames.includes('Total Earnings')){
+    toast('This doesn\'t look like a Prior Month Royalties report. Please download it from KDP → Reports → Prior Month Royalties.','err',7000);
+    return null;
+  }
+
+  const ws=wb.Sheets['Total Earnings'];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(!raw||raw.length<2) return null;
+
+  // Month is in row 0, cell B (index 1): e.g. "April 2026"
   const monthCell=raw[0]?.[1];
   const month=monthCell?normStr(String(monthCell)):parseMonthFromFilename(filename);
 
-  // Row 1 = real headers, data from row 2 onward
+  // Row 1 = real column headers, data starts row 2
   const rows=XLSX.utils.sheet_to_json(ws,{range:1,defval:''});
   const norm=rows.map(r=>({
     title:      normStr(r['Title']),
-    author:     normStr(r['Author']),   // normStr collapses 'Cal  Merritt' → 'Cal Merritt'
+    author:     normStr(r['Author']),
     asin:       normStr(r['ASIN/ISBN']||r['ASIN']),
     market:     normStr(r['Marketplace']),
     netUnits:   toNum(r['Net Units Sold or KENP Read**']||r['Net Units Sold']),
     payoutPlan: normStr(r['Payout Plan']||r['Transaction Type']),
     earnings:   toNum(r['Earnings']||r['Royalty']),
   })).filter(r=>r.title&&r.author);
+
   return{filename,month,rows:norm};
 }
 
@@ -712,7 +820,7 @@ function renderTrends(){
   CH['ch-tk']=mkStackedBar('ch-tk',agg.trendsKENP,agg.aliasArr,n=>fN(n)+' pages');
 }
 
-function renderAll(){renderOverview();renderAliases();renderBooks();renderTrends();}
+function renderAll(){renderOverview();renderAliases();renderBooks();renderTrends();renderGenres();renderGoals();}
 
 function updateFilters(){
   const sel=$$('alias-filter'),cur=sel.value;
@@ -778,6 +886,191 @@ document.querySelectorAll('.sort-btn').forEach(b=>b.addEventListener('click',()=
   b.classList.add('on');S.sort=b.dataset.sort;renderBooks();
 }));
 $$('alias-filter').addEventListener('change',e=>{S.filter=e.target.value;renderBooks();});
+
+/* ── GENRE TAGGING ── */
+const GENRE_PRESETS=['Thriller','Romance','Dark Fantasy','Sci-Fi','Mystery','Horror','Literary','Non-Fiction','Cozy Mystery','Suspense','Historical Fiction','Action'];
+const SK_GENRES='kdp_genres_v1';
+const SK_GOALS='kdp_goals_v1';
+
+function loadGenres(){try{const r=localStorage.getItem(SK_GENRES);return r?JSON.parse(r):{};}catch(e){return{};}}
+function saveGenres(g){try{localStorage.setItem(SK_GENRES,JSON.stringify(g));}catch(e){}}
+function loadGoals(){try{const r=localStorage.getItem(SK_GOALS);return r?JSON.parse(r):{};}catch(e){return{};}}
+function saveGoals(g){try{localStorage.setItem(SK_GOALS,JSON.stringify(g));}catch(e){}}
+
+// Initialize after load functions are defined
+genres=loadGenres();
+goals=loadGoals();
+
+function renderGenres(){
+  const{agg}=S;if(!agg)return;
+
+  // Build genre earnings map
+  const genreEarn={};
+  for(const b of agg.bookArr){
+    const g=genres[bookKey(b.title,b.author)]||'Untagged';
+    genreEarn[g]=(genreEarn[g]||0)+b.earn;
+  }
+  const genreArr=Object.entries(genreEarn).map(([name,earn])=>({name,earn})).sort((a,b)=>b.earn-a.earn);
+
+  // Legend
+  $$('leg-genre').innerHTML=genreArr.map((g,i)=>`<span class="leg-i"><span class="leg-dot" style="background:${COLORS[i%COLORS.length]}"></span>${g.name} ${f$(g.earn)}</span>`).join('');
+
+  // Bar chart
+  dc('genre-bar');
+  CH['genre-bar']=new Chart($$('ch-genre-bar'),{type:'bar',
+    data:{labels:genreArr.map(g=>g.name),datasets:[{label:'Earnings',data:genreArr.map(g=>g.earn),backgroundColor:genreArr.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+f$(ctx.parsed.y)}}},
+      scales:{x:{ticks:{font:TF},grid:{display:false}},y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
+
+  // Pie chart
+  dc('genre-pie');
+  CH['genre-pie']=new Chart($$('ch-genre-pie'),{type:'doughnut',
+    data:{labels:genreArr.map(g=>g.name),datasets:[{data:genreArr.map(g=>g.earn),backgroundColor:genreArr.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,hoverOffset:8}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${f$(ctx.raw)}`}}}}});
+
+  // Table — use data-idx to avoid special character escaping issues
+  const cm={};agg.aliasArr.forEach((a,i)=>cm[a.name]=COLORS[i%COLORS.length]);
+  $$('genre-tbody').innerHTML=agg.bookArr.map((b,idx)=>{
+    const bk=b.title+'|||'+b.author;
+    const assigned=genres[bk]||'';
+    const c=cm[b.author]||COLORS[0];
+    const presets=GENRE_PRESETS.map(p=>`<span class="genre-tag${assigned===p?' assigned':''}" data-idx="${idx}" data-genre="${p}">${p}</span>`).join('');
+    return`<tr>
+      <td style="font-size:14px">${b.title}</td>
+      <td><span class="td-alias" style="background:${c}22;color:${c}">${b.author}</span></td>
+      <td>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px">${presets}</div>
+        <input class="genre-input" type="text" placeholder="Or type a custom genre + Enter" data-idx="${idx}" value="${assigned}">
+      </td>
+      <td class="td-mono td-gold">${f$(b.earn)}</td>
+    </tr>`;
+  }).join('');
+
+  // Event delegation — no inline handlers, safe with any title/author text
+  const tbody=$$('genre-tbody');
+  tbody.onclick=e=>{
+    const tag=e.target.closest('.genre-tag');
+    if(!tag)return;
+    const b=agg.bookArr[+tag.dataset.idx];
+    if(!b)return;
+    genres[b.title+'|||'+b.author]=tag.dataset.genre;
+    saveGenres(genres);renderGenres();
+  };
+  tbody.onkeydown=e=>{
+    if(e.key!=='Enter')return;
+    const inp=e.target.closest('.genre-input');
+    if(!inp)return;
+    const b=agg.bookArr[+inp.dataset.idx];
+    if(!b)return;
+    genres[b.title+'|||'+b.author]=inp.value.trim();
+    saveGenres(genres);inp.blur();renderGenres();
+  };
+}
+
+/* ── GOAL TRACKER ── */
+function renderGoals(){
+  const{agg}=S;if(!agg||!agg.monthArr.length)return;
+  const latestMonth=agg.monthArr[agg.monthArr.length-1];
+  const overallGoal=goals['_overall']||0;
+
+  // Overall goal card
+  const overallPct=overallGoal>0?Math.min((latestMonth.earn/overallGoal)*100,100):0;
+  const overallAchieved=latestMonth.earn>=overallGoal&&overallGoal>0;
+  $$('goal-overall-content').innerHTML=`
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div style="font-size:28px;font-weight:300;color:var(--${overallAchieved?'green':'gold'})">${f$(latestMonth.earn)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px">${latestMonth.month}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">Goal</div>
+        <div style="font-size:20px;font-weight:300">${overallGoal>0?f$(overallGoal):'Not set'}</div>
+      </div>
+    </div>
+    <div class="goal-bar-wrap"><div class="goal-bar${overallAchieved?' achieved':''}" style="width:${overallPct}%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:6px;margin-bottom:14px;">
+      <span style="color:var(--${overallAchieved?'green':'muted'})">${overallAchieved?'🎉 Goal achieved!':overallGoal>0?f$(overallGoal-latestMonth.earn)+' to go':''}</span>
+      <span style="color:var(--muted)">${overallGoal>0?overallPct.toFixed(0)+'%':''}</span>
+    </div>
+    <div class="goal-set-row">
+      <input class="goal-set-input" type="number" min="0" step="10" placeholder="Set overall monthly goal ($)..." value="${overallGoal||''}" id="overall-goal-input">
+      <button class="goal-set-btn" id="overall-goal-btn">Set Goal</button>
+    </div>`;
+
+  $$('overall-goal-btn').addEventListener('click',()=>{
+    const val=parseFloat($$('overall-goal-input').value)||0;
+    goals['_overall']=val;saveGoals(goals);renderGoals();
+    toast(val>0?`Overall goal set to ${f$(val)}`:'Overall goal cleared','ok');
+  });
+
+  // Per-alias cards — use data attributes, no inline handlers
+  const goalGrid=$$('goal-grid');
+  goalGrid.innerHTML=agg.aliasArr.map((a,i)=>{
+    const aliasMonthEarn=agg.trendsEarn[agg.trendsEarn.length-1]?.[a.name]||0;
+    const g=goals[a.name]||0;
+    const pct=g>0?Math.min((aliasMonthEarn/g)*100,100):0;
+    const achieved=aliasMonthEarn>=g&&g>0;
+    return`<div class="goal-card${achieved?' achieved':''}">
+      <div class="goal-name" style="color:${COLORS[i%COLORS.length]}">${a.name}</div>
+      <div class="goal-period">${latestMonth.month}</div>
+      <div class="goal-bar-wrap"><div class="goal-bar${achieved?' achieved':''}" style="width:${pct}%"></div></div>
+      <div class="goal-stats">
+        <span class="goal-earned">${f$(aliasMonthEarn)}</span>
+        <span class="goal-pct${achieved?' achieved':''}">${g>0?pct.toFixed(0)+'% of goal':'No goal set'}</span>
+      </div>
+      <div class="goal-set-row">
+        <input class="goal-set-input" type="number" min="0" step="10" placeholder="Monthly goal ($)..." data-alias="${i}" value="${g||''}">
+        <button class="goal-set-btn" data-alias="${i}">Set</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  goalGrid.onclick=e=>{
+    const btn=e.target.closest('.goal-set-btn[data-alias]');
+    if(!btn)return;
+    const i=+btn.dataset.alias;
+    const inp=goalGrid.querySelector(`input[data-alias="${i}"]`);
+    const a=agg.aliasArr[i];
+    if(!a||!inp)return;
+    const val=parseFloat(inp.value)||0;
+    goals[a.name]=val;saveGoals(goals);renderGoals();
+    toast(val>0?`Goal set: ${a.name} → ${f$(val)}/mo`:`Goal cleared for ${a.name}`,'ok');
+  };
+
+  // History chart — earnings vs overall goal line
+  dc('goal-history');
+  const goalLine=agg.monthArr.map(()=>overallGoal||null);
+  CH['goal-history']=new Chart($$('ch-goal-history'),{
+    type:'bar',
+    data:{
+      labels:agg.monthArr.map(m=>m.month),
+      datasets:[
+        {label:'Earnings',data:agg.monthArr.map(m=>m.earn),backgroundColor:agg.monthArr.map(m=>m.earn>=(overallGoal||Infinity)?'rgba(52,211,153,.7)':'rgba(201,164,74,.6)'),borderRadius:4,borderWidth:0,order:2},
+        {label:'Goal',data:goalLine,type:'line',borderColor:'rgba(201,164,74,.5)',borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false,order:1}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label===('Goal')?` Goal: ${f$(ctx.raw||0)}`:` Earnings: ${f$(ctx.parsed.y)}`}}},
+      scales:{x:{ticks:{font:TF,autoSkip:false,maxRotation:35},grid:{display:false}},
+              y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
+}
+
+/* ── THEME ── */
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')!=='light';
+  document.documentElement.setAttribute('data-theme',isDark?'light':'dark');
+  $$('theme-btn').textContent=isDark?'🌙':'☀️';
+  localStorage.setItem('kdp_theme',isDark?'light':'dark');
+  // Redraw charts with new colors
+  if(S.agg) renderAll();
+}
+// Restore saved theme
+const savedTheme=localStorage.getItem('kdp_theme');
+if(savedTheme==='light'){
+  document.documentElement.setAttribute('data-theme','light');
+  document.addEventListener('DOMContentLoaded',()=>{const b=$$('theme-btn');if(b)b.textContent='☀️';});
+}
 </script>
 </body>
 </html>
