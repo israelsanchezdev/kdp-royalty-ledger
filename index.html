@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -897,14 +897,51 @@ function saveGenres(g){try{localStorage.setItem(SK_GENRES,JSON.stringify(g));}ca
 function loadGoals(){try{const r=localStorage.getItem(SK_GOALS);return r?JSON.parse(r):{};}catch(e){return{};}}
 function saveGoals(g){try{localStorage.setItem(SK_GOALS,JSON.stringify(g));}catch(e){}}
 
-// Initialize after load functions are defined
 genres=loadGenres();
 goals=loadGoals();
+
+// Global functions called from inline onclick — reliable with any content
+window.setGenrePreset=function(idx,genre){
+  const b=S.agg&&S.agg.bookArr[idx];
+  if(!b)return;
+  genres[b.title+'|||'+b.author]=genre;
+  saveGenres(genres);
+  renderGenres();
+};
+
+window.saveCustomGenre=function(inputEl){
+  const idx=+inputEl.dataset.idx;
+  const b=S.agg&&S.agg.bookArr[idx];
+  if(!b)return;
+  genres[b.title+'|||'+b.author]=inputEl.value.trim();
+  saveGenres(genres);
+  renderGenres();
+};
+
+window.setOverallGoal=function(){
+  const inp=$$('overall-goal-input');
+  if(!inp)return;
+  const val=parseFloat(inp.value)||0;
+  goals['_overall']=val;
+  saveGoals(goals);
+  renderGoals();
+  toast(val>0?`Overall goal set to ${f$(val)}`:'Overall goal cleared','ok');
+};
+
+window.setAliasGoal=function(i){
+  const inp=document.querySelector(`.goal-set-input[data-alias="${i}"]`);
+  const a=S.agg&&S.agg.aliasArr[i];
+  if(!inp||!a)return;
+  const val=parseFloat(inp.value)||0;
+  goals[a.name]=val;
+  saveGoals(goals);
+  renderGoals();
+  toast(val>0?`Goal set: ${a.name} → ${f$(val)}/mo`:`Goal cleared for ${a.name}`,'ok');
+};
 
 function renderGenres(){
   const{agg}=S;if(!agg)return;
 
-  // Build genre earnings map
   const genreEarn={};
   for(const b of agg.bookArr){
     const g=genres[b.title+'|||'+b.author]||'Untagged';
@@ -912,60 +949,35 @@ function renderGenres(){
   }
   const genreArr=Object.entries(genreEarn).map(([name,earn])=>({name,earn})).sort((a,b)=>b.earn-a.earn);
 
-  // Legend
   $$('leg-genre').innerHTML=genreArr.map((g,i)=>`<span class="leg-i"><span class="leg-dot" style="background:${COLORS[i%COLORS.length]}"></span>${g.name} ${f$(g.earn)}</span>`).join('');
 
-  // Bar chart
   dc('genre-bar');
   CH['genre-bar']=new Chart($$('ch-genre-bar'),{type:'bar',
     data:{labels:genreArr.map(g=>g.name),datasets:[{label:'Earnings',data:genreArr.map(g=>g.earn),backgroundColor:genreArr.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderWidth:0}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+f$(ctx.parsed.y)}}},
       scales:{x:{ticks:{font:TF},grid:{display:false}},y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
 
-  // Pie chart
   dc('genre-pie');
   CH['genre-pie']=new Chart($$('ch-genre-pie'),{type:'doughnut',
     data:{labels:genreArr.map(g=>g.name),datasets:[{data:genreArr.map(g=>g.earn),backgroundColor:genreArr.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,hoverOffset:8}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${f$(ctx.raw)}`}}}}});
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${f$(ctx.raw)}`}}}}});
 
-  // Table — use data-idx to avoid special character escaping issues
   const cm={};agg.aliasArr.forEach((a,i)=>cm[a.name]=COLORS[i%COLORS.length]);
   $$('genre-tbody').innerHTML=agg.bookArr.map((b,idx)=>{
     const bk=b.title+'|||'+b.author;
     const assigned=genres[bk]||'';
     const c=cm[b.author]||COLORS[0];
-    const presets=GENRE_PRESETS.map(p=>`<span class="genre-tag${assigned===p?' assigned':''}" data-idx="${idx}" data-genre="${p}">${p}</span>`).join('');
+    const presets=GENRE_PRESETS.map(p=>`<span class="genre-tag${assigned===p?' assigned':''}" onclick="setGenrePreset(${idx},'${p}')">${p}</span>`).join('');
     return`<tr>
       <td style="font-size:14px">${b.title}</td>
       <td><span class="td-alias" style="background:${c}22;color:${c}">${b.author}</span></td>
       <td>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px">${presets}</div>
-        <input class="genre-input" type="text" placeholder="Or type a custom genre + Enter" data-idx="${idx}" value="${assigned}">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${presets}</div>
+        <input class="genre-input" type="text" placeholder="Custom genre — press Enter" data-idx="${idx}" value="${assigned}" onkeydown="if(event.key==='Enter')saveCustomGenre(this)">
       </td>
       <td class="td-mono td-gold">${f$(b.earn)}</td>
     </tr>`;
   }).join('');
-
-  // Event delegation — no inline handlers, safe with any title/author text
-  const tbody=$$('genre-tbody');
-  tbody.onclick=e=>{
-    const tag=e.target.closest('.genre-tag');
-    if(!tag)return;
-    const b=agg.bookArr[+tag.dataset.idx];
-    if(!b)return;
-    genres[b.title+'|||'+b.author]=tag.dataset.genre;
-    saveGenres(genres);renderGenres();
-  };
-  tbody.onkeydown=e=>{
-    if(e.key!=='Enter')return;
-    const inp=e.target.closest('.genre-input');
-    if(!inp)return;
-    const b=agg.bookArr[+inp.dataset.idx];
-    if(!b)return;
-    genres[b.title+'|||'+b.author]=inp.value.trim();
-    saveGenres(genres);inp.blur();renderGenres();
-  };
 }
 
 /* ── GOAL TRACKER ── */
@@ -973,10 +985,9 @@ function renderGoals(){
   const{agg}=S;if(!agg||!agg.monthArr.length)return;
   const latestMonth=agg.monthArr[agg.monthArr.length-1];
   const overallGoal=goals['_overall']||0;
-
-  // Overall goal card
   const overallPct=overallGoal>0?Math.min((latestMonth.earn/overallGoal)*100,100):0;
   const overallAchieved=latestMonth.earn>=overallGoal&&overallGoal>0;
+
   $$('goal-overall-content').innerHTML=`
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
       <div>
@@ -984,79 +995,56 @@ function renderGoals(){
         <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px">${latestMonth.month}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">Goal</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">Monthly Goal</div>
         <div style="font-size:20px;font-weight:300">${overallGoal>0?f$(overallGoal):'Not set'}</div>
       </div>
     </div>
     <div class="goal-bar-wrap"><div class="goal-bar${overallAchieved?' achieved':''}" style="width:${overallPct}%"></div></div>
-    <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:6px;margin-bottom:14px;">
-      <span style="color:var(--${overallAchieved?'green':'muted'})">${overallAchieved?'🎉 Goal achieved!':overallGoal>0?f$(overallGoal-latestMonth.earn)+' to go':''}</span>
-      <span style="color:var(--muted)">${overallGoal>0?overallPct.toFixed(0)+'%':''}</span>
+    <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:6px;margin-bottom:16px;">
+      <span style="color:var(--${overallAchieved?'green':'muted'})">${overallAchieved?'🎉 Goal achieved!':overallGoal>0?f$(overallGoal-latestMonth.earn)+' remaining':''}</span>
+      <span style="color:var(--muted)">${overallGoal>0?overallPct.toFixed(0)+'% of goal':''}</span>
     </div>
     <div class="goal-set-row">
-      <input class="goal-set-input" type="number" min="0" step="10" placeholder="Set overall monthly goal ($)..." value="${overallGoal||''}" id="overall-goal-input">
-      <button class="goal-set-btn" id="overall-goal-btn">Set Goal</button>
+      <input class="goal-set-input" id="overall-goal-input" type="number" min="0" step="10" placeholder="Set overall monthly goal ($)..." value="${overallGoal||''}">
+      <button class="goal-set-btn" onclick="setOverallGoal()">Set Goal</button>
     </div>`;
 
-  $$('overall-goal-btn').addEventListener('click',()=>{
-    const val=parseFloat($$('overall-goal-input').value)||0;
-    goals['_overall']=val;saveGoals(goals);renderGoals();
-    toast(val>0?`Overall goal set to ${f$(val)}`:'Overall goal cleared','ok');
-  });
-
-  // Per-alias cards — use data attributes, no inline handlers
-  const goalGrid=$$('goal-grid');
-  goalGrid.innerHTML=agg.aliasArr.map((a,i)=>{
-    const aliasMonthEarn=agg.trendsEarn[agg.trendsEarn.length-1]?.[a.name]||0;
+  $$('goal-grid').innerHTML=agg.aliasArr.map((a,i)=>{
+    const earn=agg.trendsEarn[agg.trendsEarn.length-1]?.[a.name]||0;
     const g=goals[a.name]||0;
-    const pct=g>0?Math.min((aliasMonthEarn/g)*100,100):0;
-    const achieved=aliasMonthEarn>=g&&g>0;
+    const pct=g>0?Math.min((earn/g)*100,100):0;
+    const achieved=g>0&&earn>=g;
     return`<div class="goal-card${achieved?' achieved':''}">
       <div class="goal-name" style="color:${COLORS[i%COLORS.length]}">${a.name}</div>
       <div class="goal-period">${latestMonth.month}</div>
       <div class="goal-bar-wrap"><div class="goal-bar${achieved?' achieved':''}" style="width:${pct}%"></div></div>
       <div class="goal-stats">
-        <span class="goal-earned">${f$(aliasMonthEarn)}</span>
+        <span class="goal-earned">${f$(earn)}</span>
         <span class="goal-pct${achieved?' achieved':''}">${g>0?pct.toFixed(0)+'% of goal':'No goal set'}</span>
       </div>
       <div class="goal-set-row">
         <input class="goal-set-input" type="number" min="0" step="10" placeholder="Monthly goal ($)..." data-alias="${i}" value="${g||''}">
-        <button class="goal-set-btn" data-alias="${i}">Set</button>
+        <button class="goal-set-btn" onclick="setAliasGoal(${i})">Set</button>
       </div>
     </div>`;
   }).join('');
 
-  goalGrid.onclick=e=>{
-    const btn=e.target.closest('.goal-set-btn[data-alias]');
-    if(!btn)return;
-    const i=+btn.dataset.alias;
-    const inp=goalGrid.querySelector(`input[data-alias="${i}"]`);
-    const a=agg.aliasArr[i];
-    if(!a||!inp)return;
-    const val=parseFloat(inp.value)||0;
-    goals[a.name]=val;saveGoals(goals);renderGoals();
-    toast(val>0?`Goal set: ${a.name} → ${f$(val)}/mo`:`Goal cleared for ${a.name}`,'ok');
-  };
-
-  // History chart — earnings vs overall goal line
   dc('goal-history');
   const goalLine=agg.monthArr.map(()=>overallGoal||null);
-  CH['goal-history']=new Chart($$('ch-goal-history'),{
-    type:'bar',
-    data:{
-      labels:agg.monthArr.map(m=>m.month),
-      datasets:[
-        {label:'Earnings',data:agg.monthArr.map(m=>m.earn),backgroundColor:agg.monthArr.map(m=>m.earn>=(overallGoal||Infinity)?'rgba(52,211,153,.7)':'rgba(201,164,74,.6)'),borderRadius:4,borderWidth:0,order:2},
-        {label:'Goal',data:goalLine,type:'line',borderColor:'rgba(201,164,74,.5)',borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false,order:1}
-      ]
-    },
+  CH['goal-history']=new Chart($$('ch-goal-history'),{type:'bar',
+    data:{labels:agg.monthArr.map(m=>m.month),datasets:[
+      {label:'Earnings',data:agg.monthArr.map(m=>m.earn),
+        backgroundColor:agg.monthArr.map(m=>m.earn>=(overallGoal||Infinity)?'rgba(52,211,153,.7)':'rgba(201,164,74,.6)'),
+        borderRadius:4,borderWidth:0,order:2},
+      {label:'Goal',data:goalLine,type:'line',borderColor:'rgba(201,164,74,.5)',
+        borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false,order:1,tension:0}
+    ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label===('Goal')?` Goal: ${f$(ctx.raw||0)}`:` Earnings: ${f$(ctx.parsed.y)}`}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>
+        ctx.dataset.label==='Goal'?` Goal: ${f$(ctx.raw||0)}`:` Earnings: ${f$(ctx.parsed.y)}`}}},
       scales:{x:{ticks:{font:TF,autoSkip:false,maxRotation:35},grid:{display:false}},
               y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
 }
-
-/* ── THEME ── */
 function toggleTheme(){
   const isDark=document.documentElement.getAttribute('data-theme')!=='light';
   document.documentElement.setAttribute('data-theme',isDark?'light':'dark');
