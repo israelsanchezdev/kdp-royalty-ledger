@@ -19,17 +19,24 @@ export default async function handler(req, res) {
 
   try {
     // Check if user already has a Stripe customer ID
-    const sbRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/kdp_subscribers?user_id=eq.${user_id}&select=stripe_customer_id`,
-      {
-        headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+    let customerId = null;
+    try {
+      const sbRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/kdp_subscribers?user_id=eq.${user_id}&select=stripe_customer_id`,
+        {
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          }
         }
+      );
+      const subs = await sbRes.json();
+      if (Array.isArray(subs) && subs.length > 0) {
+        customerId = subs[0]?.stripe_customer_id || null;
       }
-    );
-    const [sub] = await sbRes.json();
-    let customerId = sub?.stripe_customer_id;
+    } catch(e) {
+      console.warn('Could not fetch subscriber:', e.message);
+    }
 
     // Create Stripe customer if needed
     if (!customerId) {
