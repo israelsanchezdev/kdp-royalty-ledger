@@ -907,7 +907,7 @@ function renderGenres(){
   // Build genre earnings map
   const genreEarn={};
   for(const b of agg.bookArr){
-    const g=genres[bookKey(b.title,b.author)]||'Untagged';
+    const g=genres[b.title+'|||'+b.author]||'Untagged';
     genreEarn[g]=(genreEarn[g]||0)+b.earn;
   }
   const genreArr=Object.entries(genreEarn).map(([name,earn])=>({name,earn})).sort((a,b)=>b.earn-a.earn);
