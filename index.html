@@ -1,1063 +1,348 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Royalty Ledger — KDP Analytics</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<title>KDP Tracker — Royalty Analytics for Indie Authors</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#0d0c18;--surf:#13111f;--card:#1a1828;--bord:#252338;
-  --gold:#c9a44a;--gold-dim:rgba(201,164,74,.12);--gold-border:rgba(201,164,74,.3);
-  --txt:#f0ebe0;--muted:#7c7a98;--dim:#3a3758;--r:8px;
-  --green:#34d399;--red:#f87171;--blue:#60a5fa;
+  --bg:#080810;--surf:#0f0f1a;--card:#141422;--bord:#1e1e30;
+  --gold:#c9a44a;--gold2:#e8c87a;--gold-dim:rgba(201,164,74,.1);
+  --txt:#f0ebe0;--muted:#6e6c88;--dim:#2a2840;
+  --green:#34d399;--red:#f87171;
 }
-[data-theme="light"]{
-  --bg:#f5f4f0;--surf:#ffffff;--card:#faf9f7;--bord:#e2ddd8;
-  --gold:#a07c28;--gold-dim:rgba(160,124,40,.08);--gold-border:rgba(160,124,40,.3);
-  --txt:#1a1714;--muted:#7a736a;--dim:#c8c2bc;--r:8px;
-  --green:#16a34a;--red:#dc2626;--blue:#2563eb;
-}
-html,body{height:100%;}
-body{background:var(--bg);color:var(--txt);font-family:'Cormorant Garamond',serif;min-height:100vh;}
-::-webkit-scrollbar{width:4px;height:4px;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;overflow-x:hidden;line-height:1.6;}
+::selection{background:var(--gold-dim);color:var(--gold2);}
+::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
 
-#loading{display:none;position:fixed;inset:0;background:rgba(13,12,24,.9);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
-#loading.on{display:flex;}
-.spinner{width:36px;height:36px;border:2px solid var(--bord);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-.loading-txt{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:2px;}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:18px 60px;display:flex;align-items:center;justify-content:space-between;background:rgba(8,8,16,.8);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.04);}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo-mark{width:28px;height:28px;background:var(--gold);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:#1a1400;}
+.nav-logo-txt{font-family:'Playfair Display',serif;font-size:18px;color:var(--txt);}
+.nav-links{display:flex;align-items:center;gap:32px;}
+.nav-link{color:var(--muted);text-decoration:none;font-size:14px;transition:color .2s;}
+.nav-link:hover{color:var(--txt);}
+.nav-cta{background:var(--gold);color:#1a1400;border:none;border-radius:7px;padding:9px 22px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;transition:all .2s;}
+.nav-cta:hover{background:var(--gold2);}
+.nav-cta.ghost{background:none;color:var(--muted);border:1px solid var(--bord);}
+.nav-cta.ghost:hover{border-color:var(--gold);color:var(--gold);}
 
-#toast{display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1828;border:1px solid var(--bord);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:12px;padding:11px 20px;border-radius:8px;z-index:1000;max-width:500px;text-align:center;}
-#toast.on{display:block;}
-#toast.ok{border-color:rgba(52,211,153,.4);color:var(--green);}
-#toast.err{border-color:rgba(248,113,113,.4);color:var(--red);}
-#toast.info{border-color:rgba(96,165,250,.35);color:var(--blue);}
+#hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:120px 60px 80px;text-align:center;position:relative;overflow:hidden;}
+.hero-glow{position:absolute;top:20%;left:50%;transform:translateX(-50%);width:700px;height:400px;background:radial-gradient(ellipse,rgba(201,164,74,.12) 0%,transparent 70%);pointer-events:none;}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;background:var(--gold-dim);border:1px solid rgba(201,164,74,.25);padding:6px 16px;border-radius:100px;margin-bottom:32px;animation:fadeUp .6s ease both;}
+.hero-eyebrow::before{content:'';width:6px;height:6px;background:var(--gold);border-radius:50%;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero-h1{font-family:'Playfair Display',serif;font-size:clamp(48px,7vw,88px);font-weight:900;line-height:1.05;letter-spacing:-2px;margin-bottom:12px;animation:fadeUp .6s .1s ease both;}
+.hero-h1 em{font-style:italic;color:var(--gold);}
+.hero-h1 .line2{display:block;font-weight:400;font-style:italic;color:var(--gold2);}
+.hero-sub{font-size:18px;font-weight:300;color:var(--muted);max-width:520px;margin:0 auto 44px;line-height:1.7;animation:fadeUp .6s .2s ease both;}
+.hero-sub strong{color:var(--txt);font-weight:500;}
+.hero-actions{display:flex;align-items:center;gap:16px;justify-content:center;flex-wrap:wrap;animation:fadeUp .6s .3s ease both;}
+.btn-primary{background:var(--gold);color:#1a1400;border:none;border-radius:8px;padding:14px 32px;font-size:16px;font-weight:500;cursor:pointer;text-decoration:none;transition:all .25s;display:inline-block;}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-2px);box-shadow:0 12px 40px rgba(201,164,74,.3);}
+.btn-ghost{background:none;color:var(--muted);border:1px solid var(--bord);border-radius:8px;padding:14px 32px;font-size:16px;cursor:pointer;text-decoration:none;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--gold);color:var(--txt);}
+.hero-note{font-size:13px;color:var(--muted);margin-top:16px;font-family:'JetBrains Mono',monospace;animation:fadeUp .6s .4s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
-/* SETTINGS DRAWER */
-#settings-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;}
-#settings-overlay.on{display:block;}
-#settings-drawer{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:100vw;background:var(--surf);border-left:1px solid var(--bord);z-index:201;overflow-y:auto;padding:28px 28px 40px;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);pointer-events:none;}
-#settings-drawer.on{transform:none;pointer-events:auto;}
-.close-btn{position:absolute;top:18px;right:18px;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;padding:4px;}
-.close-btn:hover{color:var(--txt);}
-.drawer-title{font-size:24px;font-weight:300;margin-bottom:3px;}
-.drawer-eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:24px;}
-.status-pill{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 12px;border-radius:4px;margin-bottom:20px;}
-.status-pill.connected{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);color:var(--green);}
-.status-pill.disconnected{background:rgba(124,122,152,.07);border:1px solid var(--bord);color:var(--muted);}
-.dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
-.field{margin-bottom:16px;}
-.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;}
-.field input{width:100%;background:var(--card);border:1px solid var(--bord);color:var(--txt);border-radius:6px;padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s;}
-.field input:focus{border-color:var(--gold-border);}
-.field input::placeholder{color:var(--dim);}
-.d-btn{width:100%;border-radius:6px;padding:10px 16px;cursor:pointer;transition:opacity .2s;margin-bottom:8px;font-size:14px;text-align:center;}
-.d-btn.primary{background:var(--gold);color:#1a1400;border:none;font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;}
-.d-btn.primary:hover{opacity:.85;}
-.d-btn.ghost{background:none;color:var(--muted);border:1px solid var(--bord);font-family:'JetBrains Mono',monospace;}
-.d-btn.ghost:hover{border-color:var(--gold);color:var(--gold);}
-.d-btn.danger{background:none;color:var(--red);border:1px solid rgba(248,113,113,.3);font-family:'JetBrains Mono',monospace;}
-.d-btn.danger:hover{background:rgba(248,113,113,.07);}
-.sec-head{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2.5px;color:var(--gold);text-transform:uppercase;margin:24px 0 12px;padding-top:20px;border-top:1px solid var(--bord);}
-.code-block{background:var(--card);border:1px solid var(--bord);border-radius:6px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);line-height:1.65;margin-bottom:10px;overflow-x:auto;white-space:pre;}
-.hint{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+.dash-preview{width:100%;max-width:960px;margin:64px auto 0;border-radius:16px;overflow:hidden;border:1px solid var(--bord);box-shadow:0 40px 120px rgba(0,0,0,.6);animation:fadeUp .8s .5s ease both;background:var(--surf);}
+.dash-titlebar{background:var(--card);padding:12px 18px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bord);}
+.dot{width:10px;height:10px;border-radius:50%;}
+.dot.r{background:#f87171;}.dot.y{background:#fbbf24;}.dot.g{background:#34d399;}
+.dash-url{flex:1;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+.dash-body{padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.mock-kpi{background:var(--card);border:1px solid var(--bord);border-radius:8px;padding:14px;}
+.mock-kpi-l{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;}
+.mock-kpi-v{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;}
+.mock-kpi-v.gold{color:var(--gold);}
+.mock-kpi-s{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);margin-top:4px;}
+.dash-chart-row{padding:0 20px 20px;display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+.mock-chart{background:var(--card);border:1px solid var(--bord);border-radius:8px;padding:14px;height:120px;overflow:hidden;}
+.mock-chart-title{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;}
+.mock-bars{display:flex;align-items:flex-end;gap:5px;height:72px;}
+.mock-bar{flex:1;border-radius:3px 3px 0 0;background:var(--gold);}
+.mock-aliases{display:flex;flex-direction:column;gap:8px;padding:4px 0;}
+.mock-alias{display:flex;align-items:center;justify-content:space-between;}
+.mock-alias-dot{width:8px;height:8px;border-radius:2px;}
+.mock-alias-name{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);}
+.mock-alias-val{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);}
 
-/* UPLOAD */
-#upload{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;}
-.eye{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:5px;color:var(--gold);text-transform:uppercase;margin-bottom:16px;}
-.big-title{font-size:52px;font-weight:300;line-height:1.15;text-align:center;margin-bottom:10px;}
-.big-sub{color:var(--muted);font-size:17px;font-weight:300;margin-bottom:48px;text-align:center;}
-.drop{width:100%;max-width:520px;border:1.5px dashed var(--bord);border-radius:16px;padding:48px 36px;text-align:center;cursor:pointer;transition:border-color .25s,background .25s;user-select:none;}
-.drop:hover,.drop.drag{border-color:var(--gold);background:var(--gold-dim);}
-.drop-icon{font-size:40px;margin-bottom:14px;}
-.drop-main{font-size:22px;font-weight:300;margin-bottom:8px;}
-.drop-hint{color:var(--muted);font-size:13px;font-family:'JetBrains Mono',monospace;}
-.upload-extras{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:center;}
-.ghost-btn{background:none;border:1px solid var(--bord);color:var(--muted);border-radius:6px;padding:7px 16px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.ghost-btn:hover{border-color:var(--gold);color:var(--gold);}
+.trust-bar{border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);padding:20px 60px;display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;background:var(--surf);}
+.trust-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);}
+.trust-item .icon{font-size:18px;}
+.trust-item strong{color:var(--txt);font-weight:500;}
 
-/* DASH */
-#dash{display:none;min-height:100vh;}
-.sync-bar{padding:7px 36px;display:none;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;gap:12px;flex-wrap:wrap;}
-.sync-bar.local{background:rgba(201,164,74,.08);border-bottom:1px solid var(--gold-border);color:var(--gold);display:flex;}
-.sync-bar.cloud{background:rgba(52,211,153,.06);border-bottom:1px solid rgba(52,211,153,.25);color:var(--green);display:flex;}
-.sbar-actions{display:flex;gap:8px;}
-.sbar-btn{background:none;border:1px solid currentColor;color:inherit;opacity:.6;border-radius:4px;padding:3px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
-.sbar-btn:hover{opacity:1;}
-.sbar-btn.danger{border-color:rgba(248,113,113,.4);color:var(--red);opacity:.7;}
-.sbar-btn.danger:hover{opacity:1;}
+#privacy{padding:100px 60px;max-width:1100px;margin:0 auto;}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:16px;}
+.section-h2{font-family:'Playfair Display',serif;font-size:clamp(32px,4vw,52px);font-weight:700;line-height:1.15;margin-bottom:20px;}
+.section-h2 em{font-style:italic;color:var(--gold);}
+.privacy-split{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:60px;}
+.privacy-text p{font-size:17px;color:var(--muted);line-height:1.8;margin-bottom:20px;}
+.privacy-text p strong{color:var(--txt);}
+.compare-table{background:var(--card);border:1px solid var(--bord);border-radius:12px;overflow:hidden;}
+.compare-row{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--bord);}
+.compare-row:last-child{border-bottom:none;}
+.compare-row.header{background:var(--surf);}
+.compare-cell{padding:14px 16px;font-size:13px;}
+.compare-cell.label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+.compare-cell.head{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+.compare-cell.head.us{color:var(--gold);}
+.yes{color:var(--green);}.no{color:var(--red);}.na{color:var(--muted);}
 
-.top-bar{background:var(--surf);border-bottom:1px solid var(--bord);padding:13px 36px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-.brand-eye{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:4px;color:var(--gold);text-transform:uppercase;display:block;margin-bottom:3px;}
-.brand-name{font-size:22px;font-weight:300;}
-.tbr{display:flex;align-items:center;gap:10px;}
-.meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);padding:5px 12px;border:1px solid var(--bord);border-radius:4px;}
-.add-btn{background:none;border:1px dashed var(--bord);color:var(--muted);border-radius:6px;padding:5px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.add-btn:hover{border-color:var(--gold);color:var(--gold);}
-.icon-btn{background:none;border:1px solid var(--bord);color:var(--muted);border-radius:6px;padding:5px 9px;font-size:15px;cursor:pointer;transition:all .2s;line-height:1;}
-.icon-btn:hover{border-color:var(--gold);color:var(--gold);}
+#features{padding:100px 60px;max-width:1100px;margin:0 auto;}
+.features-header{margin-bottom:60px;}
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.feature-card{background:var(--card);border:1px solid var(--bord);border-radius:12px;padding:28px;transition:border-color .25s,transform .25s;position:relative;overflow:hidden;}
+.feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:opacity .25s;}
+.feature-card:hover{border-color:rgba(201,164,74,.3);transform:translateY(-3px);}
+.feature-card:hover::before{opacity:1;}
+.feature-icon{font-size:28px;margin-bottom:16px;}
+.feature-title{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;margin-bottom:10px;}
+.feature-desc{font-size:14px;color:var(--muted);line-height:1.7;}
 
-.tab-nav{background:var(--surf);border-bottom:1px solid var(--bord);padding:0 36px;display:flex;gap:28px;}
-.tab-btn{background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:'Cormorant Garamond',serif;font-size:17px;padding:11px 0;color:var(--muted);transition:color .2s,border-color .2s;}
-.tab-btn:hover{color:var(--gold);}
-.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+#unique{padding:100px 60px;background:var(--surf);border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);}
+.unique-inner{max-width:1100px;margin:0 auto;}
+.unique-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:48px;}
+.unique-card{background:var(--bg);border:1px solid var(--bord);border-radius:10px;padding:22px;}
+.unique-icon{font-size:24px;margin-bottom:12px;}
+.unique-title{font-size:15px;font-weight:500;margin-bottom:7px;}
+.unique-desc{font-size:13px;color:var(--muted);line-height:1.65;}
+.badge{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:3px;margin-top:12px;display:inline-block;}
+.badge.now{background:rgba(201,164,74,.1);color:var(--gold);border:1px solid rgba(201,164,74,.3);}
+.badge.soon{background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.2);}
 
-.main{padding:26px 36px;max-width:1200px;margin:0 auto;}
-.tab-pane{display:none;}
-.tab-pane.active{display:block;}
+#pricing{padding:100px 60px;max-width:700px;margin:0 auto;text-align:center;}
+.price-card{background:var(--card);border:1px solid var(--gold);border-radius:20px;padding:52px;margin-top:48px;position:relative;overflow:hidden;}
+.price-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.price-badge{display:inline-block;background:var(--gold);color:#1a1400;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:5px 14px;border-radius:100px;margin-bottom:20px;}
+.price-amount{font-family:'Playfair Display',serif;font-size:72px;font-weight:900;color:var(--gold);line-height:1;margin-bottom:4px;}
+.price-period{font-size:16px;color:var(--muted);margin-bottom:32px;}
+.price-features{list-style:none;text-align:left;margin-bottom:36px;display:flex;flex-direction:column;gap:12px;}
+.price-features li{display:flex;align-items:center;gap:10px;font-size:15px;}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;font-size:14px;flex-shrink:0;}
+.price-note{font-size:13px;color:var(--muted);margin-top:16px;font-family:'JetBrains Mono',monospace;}
 
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
-@media(max-width:800px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
-.kpi{background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:17px 19px;}
-.kpi-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:9px;}
-.kpi-val{font-size:26px;font-weight:300;}
-.kpi-val.gold{color:var(--gold);}
-.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);margin-top:5px;}
+#cta{padding:120px 60px;text-align:center;position:relative;overflow:hidden;}
+#cta::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(ellipse,rgba(201,164,74,.08) 0%,transparent 70%);pointer-events:none;}
 
-.cc{background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:20px 22px;margin-bottom:16px;}
-.cc-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;}
-.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
-@media(max-width:740px){.chart-row{grid-template-columns:1fr;}}
-.leg{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;}
-.leg-i{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
-.leg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+footer{border-top:1px solid var(--bord);padding:40px 60px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+.footer-logo{font-family:'Playfair Display',serif;font-size:17px;color:var(--muted);}
+.footer-links{display:flex;gap:24px;}
+.footer-link{color:var(--muted);text-decoration:none;font-size:13px;transition:color .2s;}
+.footer-link:hover{color:var(--txt);}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);}
 
-.tbl-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-.tbl-sel{background:var(--card);border:1px solid var(--bord);color:var(--txt);border-radius:6px;padding:6px 10px;font-size:13px;outline:none;font-family:'JetBrains Mono',monospace;cursor:pointer;}
-.sort-btn{background:none;border:1px solid var(--bord);color:var(--muted);border-radius:4px;padding:4px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:all .2s;}
-.sort-btn:hover{border-color:var(--gold);}
-.sort-btn.on{border-color:var(--gold);color:var(--gold);background:var(--gold-dim);}
-.tbl-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto;}
-
-table{width:100%;border-collapse:collapse;font-size:14px;}
-thead th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;text-align:left;padding:10px 12px;border-bottom:1px solid var(--bord);}
-tbody tr{border-bottom:1px solid var(--bord);transition:background .15s;}
-tbody tr:hover{background:rgba(201,164,74,.04);}
-tbody td{padding:10px 12px;vertical-align:middle;}
-.td-mono{font-family:'JetBrains Mono',monospace;font-size:13px;}
-.td-gold{color:var(--gold);}
-.td-dim{color:var(--muted);}
-.td-alias{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:3px;display:inline-block;white-space:nowrap;}
-.bar-mini{height:3px;border-radius:2px;margin-top:3px;}
-
-.alias-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:16px;}
-
-/* MoM growth */
-.mom-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;}
-.mom-scroll::-webkit-scrollbar{height:3px;}
-.mom-scroll::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
-.mom-card{flex:0 0 148px;background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:14px 16px;}
-.mom-card.best{border-color:var(--gold-border);}
-.mom-month{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.mom-earn{font-size:20px;font-weight:300;color:var(--txt);margin-bottom:6px;}
-.mom-delta{font-family:'JetBrains Mono',monospace;font-size:11px;display:flex;align-items:center;gap:4px;}
-.mom-delta.up{color:var(--green);}
-.mom-delta.down{color:var(--red);}
-.mom-delta.neutral{color:var(--muted);}
-.alias-card{background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:18px;position:relative;overflow:hidden;}
-.alias-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--gold));}
-.alias-name{font-size:19px;margin-bottom:13px;}
-.a-stat{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--bord);}
-.a-stat:last-child{border-bottom:none;}
-.a-sl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
-.a-sv{font-family:'JetBrains Mono',monospace;font-size:13px;}
-
-/* Genre tagging */
-.genre-tag{
-  display:inline-flex;align-items:center;gap:4px;
-  font-family:'JetBrains Mono',monospace;font-size:10px;
-  padding:2px 8px;border-radius:100px;cursor:pointer;
-  border:1px solid var(--bord);color:var(--muted);
-  background:var(--card);transition:all .15s;white-space:nowrap;
+@media(max-width:900px){
+  nav{padding:16px 24px;}
+  .nav-links .nav-link{display:none;}
+  #hero{padding:100px 24px 60px;}
+  .dash-preview{display:none;}
+  .trust-bar{padding:20px 24px;gap:24px;}
+  #privacy,#features,#unique,#pricing,#cta{padding:60px 24px;}
+  .privacy-split,.feature-grid{grid-template-columns:1fr;}
+  .unique-grid{grid-template-columns:1fr 1fr;}
+  footer{padding:32px 24px;}
 }
-.genre-tag.assigned{border-color:var(--gold-border);color:var(--gold);background:var(--gold-dim);}
-.genre-input{
-  background:var(--card);border:1px solid var(--bord);color:var(--txt);
-  border-radius:6px;padding:4px 8px;font-family:'JetBrains Mono',monospace;
-  font-size:11px;outline:none;width:120px;transition:border-color .2s;
-}
-.genre-input:focus{border-color:var(--gold-border);}
-
-/* Goal tracker */
-.goal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:20px;}
-.goal-card{background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:18px;position:relative;}
-.goal-card.achieved{border-color:rgba(52,211,153,.3);}
-.goal-name{font-size:15px;font-weight:400;margin-bottom:4px;}
-.goal-period{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
-.goal-bar-wrap{height:6px;background:var(--bord);border-radius:3px;margin-bottom:8px;overflow:hidden;}
-.goal-bar{height:100%;border-radius:3px;background:var(--gold);transition:width .6s ease;}
-.goal-bar.achieved{background:var(--green);}
-.goal-stats{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;}
-.goal-earned{color:var(--txt);}
-.goal-pct{color:var(--muted);}
-.goal-pct.achieved{color:var(--green);}
-.goal-set-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bord);}
-.goal-set-input{
-  flex:1;background:var(--bg);border:1px solid var(--bord);color:var(--txt);
-  border-radius:5px;padding:5px 8px;font-family:'JetBrains Mono',monospace;
-  font-size:11px;outline:none;
-}
-.goal-set-input:focus{border-color:var(--gold-border);}
-.goal-set-btn{
-  background:var(--gold-dim);border:1px solid var(--gold-border);color:var(--gold);
-  border-radius:5px;padding:5px 10px;font-family:'JetBrains Mono',monospace;
-  font-size:10px;cursor:pointer;white-space:nowrap;transition:background .2s;
-}
-.goal-set-btn:hover{background:rgba(201,164,74,.2);}
-.goal-overall{background:var(--card);border:1px solid var(--bord);border-radius:var(--r);padding:20px;margin-bottom:16px;}
-.goal-overall-h{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;}
-
-/* Reports list */
-.report-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bord);gap:12px;}
-.report-row:last-child{border-bottom:none;}
-.report-info{flex:1;min-width:0;}
-.report-month{font-size:15px;font-weight:300;color:var(--txt);}
-.report-file{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-.del-btn{background:none;border:1px solid rgba(248,113,113,.25);color:var(--red);border-radius:4px;padding:3px 9px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;opacity:.6;transition:opacity .2s;white-space:nowrap;flex-shrink:0;}
-.del-btn:hover{opacity:1;background:rgba(248,113,113,.08);}
 </style>
 </head>
 <body>
 
-<div id="loading"><div class="spinner"></div><div class="loading-txt" id="loading-txt">Loading...</div></div>
-<div id="toast"></div>
-
-<!-- SETTINGS DRAWER -->
-<div id="settings-overlay" onclick="closeSettings()"></div>
-<div id="settings-drawer">
-  <button class="close-btn" onclick="closeSettings()">×</button>
-  <div class="drawer-title">Settings</div>
-  <div class="drawer-eyebrow">Supabase Sync &amp; Data Management</div>
-
-  <div id="sb-pill" class="status-pill disconnected"><span class="dot"></span><span id="sb-pill-txt">Not connected</span></div>
-
-  <div class="field"><label>Supabase Project URL</label>
-    <input type="text" id="sb-url" placeholder="https://xxxxxxxxxxxx.supabase.co"></div>
-  <div class="field"><label>Supabase Anon Key</label>
-    <input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></div>
-  <button class="d-btn primary" onclick="saveSupabaseConfig()">Connect to Supabase</button>
-  <button class="d-btn ghost" id="sb-disconnect" onclick="disconnectSupabase()" style="display:none">Disconnect</button>
-
-  <div class="sec-head">Supabase Table Setup (run once)</div>
-  <p class="hint">In your Supabase project → SQL Editor, run this:</p>
-  <div class="code-block" id="setup-sql">create table kdp_reports (
-  id bigserial primary key,
-  filename text unique not null,
-  month text not null,
-  rows jsonb not null,
-  uploaded_at timestamptz default now()
-);
-
-alter table kdp_reports enable row level security;
-
-create policy "allow_all" on kdp_reports
-  for all using (true) with check (true);</div>
-  <button class="d-btn ghost" onclick="copySQL()" style="margin-bottom:0">Copy SQL</button>
-
-  <div class="sec-head">Data</div>
-  <button class="d-btn ghost" onclick="exportJSON()">⬇ Export JSON backup</button>
-  <label class="d-btn ghost" style="display:block;cursor:pointer;">
-    <input type="file" id="import-fi-d" accept=".json" style="display:none"> ⬆ Import JSON backup
-  </label>
-  <button class="d-btn danger" onclick="clearAll()">✕ Clear all data</button>
-
-  <div class="sec-head">Loaded Reports</div>
-  <div id="reports-list"><p class="hint">No reports loaded.</p></div>
-</div>
-
-<!-- UPLOAD -->
-<div id="upload">
-  <div class="eye">Royalty Ledger</div>
-  <h1 class="big-title">Your Books.<br><em>Your Earnings.</em></h1>
-  <p class="big-sub">Upload your KDP monthly royalty reports (.xlsx)</p>
-  <div class="drop" id="drop" onclick="document.getElementById('fi').click()">
-    <div class="drop-icon">📊</div>
-    <div class="drop-main">Drop files here</div>
-    <div class="drop-hint">or click to browse · multiple months supported</div>
+<nav id="nav">
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-mark">K</div>
+    <span class="nav-logo-txt">KDP Tracker</span>
+  </a>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+    <a href="/login.html" class="nav-link">Log In</a>
+    <a href="/login.html#signup" class="nav-cta" id="nav-cta">Start Free Trial</a>
   </div>
-  <input type="file" id="fi" accept=".xlsx,.xls" multiple style="display:none">
-  <div class="upload-extras">
-    <label class="ghost-btn"><input type="file" id="import-fi-u" accept=".json" style="display:none">📂 Import JSON backup</label>
-    <button class="ghost-btn" onclick="openSettings()">⚙ Supabase Setup</button>
+</nav>
+
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-eyebrow"><span></span>Built for indie authors with multiple pen names</div>
+  <h1 class="hero-h1">Your royalties.<br><span class="line2">Finally clear.</span></h1>
+  <p class="hero-sub">Beautiful analytics for Amazon KDP authors — across every pen name, every book, every marketplace. <strong>Without ever handing over your Amazon login.</strong></p>
+  <div class="hero-actions">
+    <a href="/login.html#signup" class="btn-primary" id="hero-cta">Start Free Trial</a>
+    <a href="#features" class="btn-ghost">See Features</a>
   </div>
-</div>
+  <p class="hero-note">No credit card · 14-day free trial · $5/month after</p>
 
-<!-- DASH -->
-<div id="dash">
-  <div class="sync-bar" id="sync-bar">
-    <span id="sync-bar-txt"></span>
-    <div class="sbar-actions">
-      <button class="sbar-btn" onclick="exportJSON()">⬇ Backup</button>
-      <button class="sbar-btn" onclick="openSettings()">⚙ Settings</button>
-      <button class="sbar-btn danger" onclick="clearAll()">✕ Clear</button>
+  <div class="dash-preview">
+    <div class="dash-titlebar">
+      <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+      <div class="dash-url">app.kdptracker.com · Overview</div>
     </div>
-  </div>
-
-  <div class="top-bar">
-    <div><span class="brand-eye">Royalty Ledger</span><span class="brand-name">Amazon KDP Analytics</span></div>
-    <div class="tbr">
-      <span class="meta" id="meta">—</span>
-      <label><input type="file" accept=".xlsx,.xls" multiple style="display:none" id="add-fi"><span class="add-btn">+ Add Reports</span></label>
-      <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle light/dark">🌙</button>
-      <button class="icon-btn" onclick="openSettings()" title="Settings">⚙</button>
+    <div class="dash-body">
+      <div class="mock-kpi"><div class="mock-kpi-l">Total Earnings</div><div class="mock-kpi-v gold">$3,847.22</div><div class="mock-kpi-s">3 months</div></div>
+      <div class="mock-kpi"><div class="mock-kpi-l">Units Sold</div><div class="mock-kpi-v">1,284</div><div class="mock-kpi-s">14 titles</div></div>
+      <div class="mock-kpi"><div class="mock-kpi-l">KENP Pages</div><div class="mock-kpi-v">284,910</div><div class="mock-kpi-s">Kindle Unlimited</div></div>
+      <div class="mock-kpi"><div class="mock-kpi-l">Top Pen Name</div><div class="mock-kpi-v" style="font-size:16px;padding-top:4px">Cal Merritt</div><div class="mock-kpi-s">$1,922.10 total</div></div>
     </div>
-  </div>
-
-  <div class="tab-nav">
-    <button class="tab-btn active" data-tab="overview">Overview</button>
-    <button class="tab-btn" data-tab="aliases">Pen Names</button>
-    <button class="tab-btn" data-tab="books">Books</button>
-    <button class="tab-btn" data-tab="trends">Trends</button>
-    <button class="tab-btn" data-tab="genres">Genres</button>
-    <button class="tab-btn" data-tab="goals">Goals</button>
-  </div>
-
-  <div class="main">
-
-    <div class="tab-pane active" id="tab-overview">
-      <div class="kpi-grid">
-        <div class="kpi"><div class="kpi-label">Total Earnings</div><div class="kpi-val gold" id="k-earn">—</div><div class="kpi-sub" id="k-earn-s"></div></div>
-        <div class="kpi"><div class="kpi-label">Units Sold</div><div class="kpi-val" id="k-units">—</div><div class="kpi-sub" id="k-units-s"></div></div>
-        <div class="kpi"><div class="kpi-label">KENP Pages</div><div class="kpi-val" id="k-kenp">—</div><div class="kpi-sub" id="k-kenp-s"></div></div>
-        <div class="kpi"><div class="kpi-label">Top Pen Name</div><div class="kpi-val" id="k-alias" style="font-size:17px;padding-top:5px;">—</div><div class="kpi-sub" id="k-alias-s"></div></div>
-      </div>
-      <div class="cc"><div class="cc-title">Earnings Trend</div><div style="position:relative;width:100%;height:220px;"><canvas id="ch-monthly"></canvas></div></div>
-
-      <div class="cc">
-        <div class="cc-title">Month-over-Month Comparison</div>
-        <div class="mom-scroll" id="mom-cards"></div>
-        <div style="position:relative;width:100%;height:200px;"><canvas id="ch-mom-bar"></canvas></div>
-      </div>
-
-      <div class="chart-row">
-        <div class="cc" style="margin-bottom:0"><div class="cc-title">By Pen Name</div><div class="leg" id="leg-alias"></div><div style="position:relative;width:100%;height:190px;"><canvas id="ch-alias"></canvas></div></div>
-        <div class="cc" style="margin-bottom:0"><div class="cc-title">By Marketplace</div><div style="position:relative;width:100%;height:230px;"><canvas id="ch-market"></canvas></div></div>
-      </div>
-    </div>
-
-    <div class="tab-pane" id="tab-aliases">
-      <div class="cc"><div class="cc-title">Earnings by Pen Name</div><div id="hbar-wrap" style="position:relative;width:100%;"><canvas id="ch-alias-bar"></canvas></div></div>
-      <div class="alias-grid" id="alias-grid"></div>
-    </div>
-
-    <div class="tab-pane" id="tab-books">
-      <div class="tbl-controls">
-        <select id="alias-filter" class="tbl-sel"><option value="All">All Pen Names</option></select>
-        <button class="sort-btn on" data-sort="earn">Earnings</button>
-        <button class="sort-btn" data-sort="units">Units</button>
-        <button class="sort-btn" data-sort="kenp">KENP</button>
-        <span class="tbl-meta" id="book-meta"></span>
-      </div>
-      <div class="cc" style="padding:0;overflow:hidden;">
-        <table><thead><tr>
-          <th style="width:36px">#</th><th>Title</th><th>Pen Name</th>
-          <th>Units</th><th>KENP</th><th>Earnings</th><th style="min-width:80px">% Total</th>
-        </tr></thead><tbody id="book-tbody"></tbody></table>
-      </div>
-    </div>
-
-    <div class="tab-pane" id="tab-trends">
-      <div class="cc"><div class="cc-title">Earnings Over Time — By Pen Name</div><div class="leg" id="leg-te"></div><div style="position:relative;width:100%;height:290px;"><canvas id="ch-te"></canvas></div></div>
-      <div class="cc"><div class="cc-title">Units Sold Over Time</div><div class="leg" id="leg-tu"></div><div style="position:relative;width:100%;height:250px;"><canvas id="ch-tu"></canvas></div></div>
-      <div class="cc"><div class="cc-title">KENP Pages Over Time</div><div class="leg" id="leg-tk"></div><div style="position:relative;width:100%;height:250px;"><canvas id="ch-tk"></canvas></div></div>
-    </div>
-
-    <!-- GENRES -->
-    <div class="tab-pane" id="tab-genres">
-      <div class="cc" style="margin-bottom:16px;">
-        <div class="cc-title">Genre Tagging</div>
-        <p style="font-size:14px;color:var(--muted);margin-bottom:0;line-height:1.7;">Tag each book with a genre to see which categories earn the most. Click a preset or type your own.</p>
-      </div>
-      <div class="chart-row" style="margin-bottom:16px;">
-        <div class="cc" style="margin-bottom:0">
-          <div class="cc-title">Earnings by Genre</div>
-          <div class="leg" id="leg-genre"></div>
-          <div style="position:relative;width:100%;height:200px;"><canvas id="ch-genre-bar"></canvas></div>
-        </div>
-        <div class="cc" style="margin-bottom:0">
-          <div class="cc-title">Genre Share</div>
-          <div style="position:relative;width:100%;height:240px;"><canvas id="ch-genre-pie"></canvas></div>
+    <div class="dash-chart-row">
+      <div class="mock-chart">
+        <div class="mock-chart-title">Monthly Earnings</div>
+        <div class="mock-bars">
+          <div class="mock-bar" style="height:45%;opacity:.3"></div>
+          <div class="mock-bar" style="height:60%;opacity:.6"></div>
+          <div class="mock-bar" style="height:100%;opacity:.9"></div>
         </div>
       </div>
-      <div class="cc" style="padding:0;overflow:hidden;">
-        <table>
-          <thead><tr><th>Title</th><th>Pen Name</th><th>Genre</th><th>Earnings</th></tr></thead>
-          <tbody id="genre-tbody"></tbody>
-        </table>
+      <div class="mock-chart">
+        <div class="mock-chart-title">By Pen Name</div>
+        <div class="mock-aliases">
+          <div class="mock-alias"><div style="display:flex;align-items:center;gap:6px"><div class="mock-alias-dot" style="background:#c9a44a"></div><span class="mock-alias-name">Cal Merritt</span></div><span class="mock-alias-val">$1,922</span></div>
+          <div class="mock-alias"><div style="display:flex;align-items:center;gap:6px"><div class="mock-alias-dot" style="background:#7b61ff"></div><span class="mock-alias-name">Jack Drake</span></div><span class="mock-alias-val">$1,104</span></div>
+          <div class="mock-alias"><div style="display:flex;align-items:center;gap:6px"><div class="mock-alias-dot" style="background:#34d399"></div><span class="mock-alias-name">M.K. Calder</span></div><span class="mock-alias-val">$821</span></div>
+        </div>
       </div>
     </div>
-
-    <!-- GOALS -->
-    <div class="tab-pane" id="tab-goals">
-      <div class="goal-overall">
-        <div class="goal-overall-h">Overall Monthly Goal</div>
-        <div id="goal-overall-content"></div>
-      </div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;">Per Pen Name — Most Recent Month</div>
-      <div class="goal-grid" id="goal-grid"></div>
-      <div class="cc" style="margin-top:16px;">
-        <div class="cc-title">Monthly Earnings vs Goal</div>
-        <div style="position:relative;width:100%;height:220px;"><canvas id="ch-goal-history"></canvas></div>
-      </div>
-    </div>
-
   </div>
+</section>
+
+<div class="trust-bar">
+  <div class="trust-item"><span class="icon">🔒</span><span><strong>No Amazon login required</strong> — ever</span></div>
+  <div class="trust-item"><span class="icon">📁</span><span><strong>Raw files never leave your browser</strong></span></div>
+  <div class="trust-item"><span class="icon">✍️</span><span><strong>Built for multi-pen-name authors</strong></span></div>
+  <div class="trust-item"><span class="icon">☁️</span><span><strong>Access from any device</strong></span></div>
 </div>
+
+<section id="privacy">
+  <div class="section-eyebrow">Privacy First</div>
+  <h2 class="section-h2">They want your<br><em>Amazon login.</em><br>We don't.</h2>
+  <div class="privacy-split">
+    <div class="privacy-text">
+      <p>Most analytics tools require you to <strong>hand over your Amazon credentials</strong> or grant third-party access to your KDP account.</p>
+      <p>KDP Tracker works differently. You download your monthly royalty report from Amazon and upload the numbers. <strong>Your raw files are parsed in your browser and never touch our servers.</strong></p>
+      <p>Only the extracted numbers are stored, encrypted, in your private account. Your Excel files disappear the moment the numbers are read.</p>
+    </div>
+    <div class="compare-table">
+      <div class="compare-row header">
+        <div class="compare-cell head"></div>
+        <div class="compare-cell head us">KDP Tracker</div>
+        <div class="compare-cell head">Competitors</div>
+      </div>
+      <div class="compare-row"><div class="compare-cell label">Amazon login required</div><div class="compare-cell yes">✓ Never</div><div class="compare-cell no">✗ Required</div></div>
+      <div class="compare-row"><div class="compare-cell label">Raw files stored on server</div><div class="compare-cell yes">✓ Never</div><div class="compare-cell no">✗ Often yes</div></div>
+      <div class="compare-row"><div class="compare-cell label">Multi-pen-name support</div><div class="compare-cell yes">✓ Built for it</div><div class="compare-cell na">~ Partial</div></div>
+      <div class="compare-row"><div class="compare-cell label">Starting price</div><div class="compare-cell yes">✓ $5/mo</div><div class="compare-cell no">✗ $15–40/mo</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="features-header">
+    <div class="section-eyebrow">Features</div>
+    <h2 class="section-h2">Everything an indie author<br><em>actually needs.</em></h2>
+  </div>
+  <div class="feature-grid">
+    <div class="feature-card"><div class="feature-icon">✍️</div><div class="feature-title">Pen Name Analytics</div><div class="feature-desc">Earnings, units, KENP, and trends broken down by each pen name. Understand which alias is growing.</div></div>
+    <div class="feature-card"><div class="feature-icon">📈</div><div class="feature-title">Month-over-Month Growth</div><div class="feature-desc">Visual growth cards for every month — total earnings, percentage change, and your best month highlighted.</div></div>
+    <div class="feature-card"><div class="feature-icon">📚</div><div class="feature-title">Book-Level Performance</div><div class="feature-desc">Sortable table of every title across all pen names. Filter by alias, sort by royalty, units, or KENP.</div></div>
+    <div class="feature-card"><div class="feature-icon">🏷️</div><div class="feature-title">Genre Tagging</div><div class="feature-desc">Tag your books by genre and see which categories are your most profitable across all pen names.</div></div>
+    <div class="feature-card"><div class="feature-icon">🎯</div><div class="feature-title">Goal Tracker</div><div class="feature-desc">Set monthly earnings targets per pen name. Track progress and stay motivated with visual progress bars.</div></div>
+    <div class="feature-card"><div class="feature-icon">☁️</div><div class="feature-title">Sync Across Devices</div><div class="feature-desc">Your data lives in a private cloud vault. Upload on your laptop, check on your phone — always in sync.</div></div>
+  </div>
+</section>
+
+<section id="unique">
+  <div class="unique-inner">
+    <div class="section-eyebrow">What's Coming</div>
+    <h2 class="section-h2">Features your other tools<br><em>don't have.</em></h2>
+    <div class="unique-grid">
+      <div class="unique-card"><div class="unique-icon">📊</div><div class="unique-title">Series Read-Through</div><div class="unique-desc">What % of Book 1 buyers buy Book 2? Track read-through to know which series to continue.</div><span class="badge soon">Coming Soon</span></div>
+      <div class="unique-card"><div class="unique-icon">🧾</div><div class="unique-title">Tax Estimator</div><div class="unique-desc">Rough quarterly self-employment tax estimate based on your earnings. No more surprise tax bills.</div><span class="badge soon">Coming Soon</span></div>
+      <div class="unique-card"><div class="unique-icon">📔</div><div class="unique-title">Event Journal</div><div class="unique-desc">Log when you changed a cover or ran a promo. See the before/after directly on your earnings charts.</div><span class="badge soon">Coming Soon</span></div>
+      <div class="unique-card"><div class="unique-icon">📤</div><div class="unique-title">Tax Export</div><div class="unique-desc">Generate a clean annual PDF summary of all earnings, formatted for your accountant.</div><span class="badge soon">Coming Soon</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="section-eyebrow">Pricing</div>
+  <h2 class="section-h2">Simple.<br><em>Honest.</em> Affordable.</h2>
+  <div class="price-card">
+    <div class="price-badge">All Access</div>
+    <div class="price-amount">$5</div>
+    <div class="price-period">per month · cancel anytime</div>
+    <ul class="price-features">
+      <li>Unlimited pen names &amp; books</li>
+      <li>Unlimited monthly report uploads</li>
+      <li>Full analytics dashboard — all tabs</li>
+      <li>Private cloud sync across all devices</li>
+      <li>Genre tagging &amp; goal tracker</li>
+      <li>Month-over-month growth tracking</li>
+      <li>Every new feature as it ships</li>
+    </ul>
+    <a href="/login.html#signup" class="btn-primary" style="display:block;text-align:center;font-size:17px;padding:16px;">Start Free 14-Day Trial</a>
+    <p class="price-note">No card required to start · $5/month after trial</p>
+  </div>
+</section>
+
+<section id="cta">
+  <div class="section-eyebrow">Get Started</div>
+  <h2 class="section-h2" style="font-family:'Playfair Display',serif;font-size:clamp(36px,5vw,64px);font-weight:700;line-height:1.15;margin-bottom:20px;">Stop guessing.<br><em style="color:var(--gold)">Start knowing.</em></h2>
+  <p style="color:var(--muted);font-size:17px;max-width:440px;margin:0 auto 40px;line-height:1.7;">Your books are working. You deserve to know exactly how hard.</p>
+  <a href="/login.html#signup" class="btn-primary" style="font-size:17px;padding:16px 40px;">Start Free Trial — No Card Required</a>
+</section>
+
+<footer>
+  <div class="footer-logo">KDP Tracker</div>
+  <div class="footer-links">
+    <a href="#features" class="footer-link">Features</a>
+    <a href="#pricing" class="footer-link">Pricing</a>
+    <a href="/login.html" class="footer-link">Log In</a>
+  </div>
+  <div class="footer-copy">© 2026 KDP Tracker. All rights reserved.</div>
+</footer>
 
 <script>
-'use strict';
-const COLORS=['#c9a44a','#7b61ff','#34d399','#e87c6a','#60a5fa','#f472b6','#a78bfa','#fb923c','#2dd4bf'];
-const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const SK='kdp_v3',SK_SB='kdp_sb_config';
-const GENRE_PRESETS=['Thriller','Romance','Dark Fantasy','Sci-Fi','Mystery','Horror','Literary','Non-Fiction','Cozy Mystery','Suspense','Historical Fiction','Action'];
-const SK_GENRES='kdp_genres_v1';
-const SK_GOALS='kdp_goals_v1';
-let S={sheets:[],agg:null,filter:'All',sort:'earn'};
-let CH={},SB=null;
-let genres={},goals={};
+const SUPABASE_URL='https://oieyaymfflvznviyeprc.supabase.co';
+const SUPABASE_KEY='sb_publishable_0o8nigeqxU6zKyEzHDujtg_gLwjExWi';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-const $$=id=>document.getElementById(id);
-const loading=(on,txt='Loading...')=>{$$('loading').classList.toggle('on',on);$$('loading-txt').textContent=txt;};
-let _tt;
-function toast(msg,type='',ms=4000){
-  const t=$$('toast');t.textContent=msg;t.className='on';
-  if(type)t.classList.add(type);clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('on'),ms);
-}
-
-/* ── SETTINGS DRAWER ── */
-function openSettings(){
-  $$('settings-overlay').classList.add('on');
-  $$('settings-drawer').classList.add('on');
-  const cfg=getSBCfg();
-  if(cfg){$$('sb-url').value=cfg.url;$$('sb-key').value=cfg.key;}
-  renderReportsList();
-}
-function closeSettings(){
-  $$('settings-overlay').classList.remove('on');
-  $$('settings-drawer').classList.remove('on');
-}
-
-function setConnected(on){
-  const pill=$$('sb-pill');
-  pill.className='status-pill '+(on?'connected':'disconnected');
-  $$('sb-pill-txt').textContent=on?'Connected to Supabase':'Not connected';
-  $$('sb-disconnect').style.display=on?'block':'none';
-  updateSyncBar();
-}
-
-function updateSyncBar(){
-  const bar=$$('sync-bar');
-  if(SB){bar.className='sync-bar cloud';$$('sync-bar-txt').textContent='☁ Synced with Supabase — accessible from any browser.';}
-  else{bar.className='sync-bar local';$$('sync-bar-txt').textContent='💾 Saved locally. Connect Supabase for cross-device access.';}
-}
-
-async function copySQL(){
-  try{await navigator.clipboard.writeText($$('setup-sql').textContent);toast('SQL copied ✓','ok');}
-  catch(e){toast('Manually select and copy the SQL block','info');}
-}
-
-/* ── SUPABASE ── */
-const getSBCfg=()=>{try{const r=localStorage.getItem(SK_SB);return r?JSON.parse(r):null;}catch(e){return null;}};
-
-function initSBClient(url,key){
-  try{const{createClient}=window.supabase;SB=createClient(url,key);return true;}
-  catch(e){SB=null;return false;}
-}
-
-async function saveSupabaseConfig(){
-  const url=$$('sb-url').value.trim(),key=$$('sb-key').value.trim();
-  if(!url||!key){toast('Enter both URL and key','err');return;}
-  if(!url.includes('supabase')){toast('URL should be your Supabase project URL','err');return;}
-  loading(true,'Connecting...');
-  try{
-    if(!initSBClient(url,key)){toast('Failed to initialize client','err');return;}
-    const{error}=await SB.from('kdp_reports').select('id').limit(1);
-    if(error){
-      SB=null;
-      if(error.code==='42P01')toast('Connected but table missing — run the setup SQL first','err',7000);
-      else toast('Connection error: '+error.message,'err',7000);
-      return;
-    }
-    localStorage.setItem(SK_SB,JSON.stringify({url,key}));
-    setConnected(true);
-    toast('Connected! Pulling cloud data...','ok');
-    await pullFromSB();
-    closeSettings();
-  }finally{loading(false);}
-}
-
-function disconnectSupabase(){
-  if(!confirm('Disconnect Supabase? Local data is kept.'))return;
-  localStorage.removeItem(SK_SB);SB=null;setConnected(false);
-  toast('Disconnected. Using local storage.','info');
-}
-
-async function pushToSB(sheet){
-  if(!SB)return;
-  try{const{error}=await SB.from('kdp_reports').upsert({filename:sheet.filename,month:sheet.month,rows:sheet.rows},{onConflict:'filename'});
-    if(error)console.warn('SB push:',error.message);}
-  catch(e){console.warn('SB push failed:',e);}
-}
-
-async function pullFromSB(){
-  if(!SB)return;
-  try{
-    const{data,error}=await SB.from('kdp_reports').select('filename,month,rows').order('month');
-    if(error){console.warn('SB pull:',error.message);return;}
-    if(!data?.length)return;
-    const names=new Set(S.sheets.map(s=>s.filename));
-    let added=0;
-    for(const r of data){if(!names.has(r.filename)){S.sheets.push({filename:r.filename,month:r.month,rows:r.rows});added++;}}
-    if(added){S.agg=aggregate(S.sheets);saveLocal();if(S.agg)showDash();toast(`Pulled ${added} report${added!==1?'s':''} from Supabase`,'ok');}
-  }catch(e){console.warn('SB pull failed:',e);}
-}
-
-/* ── LOCAL STORAGE ── */
-const saveLocal=()=>{try{localStorage.setItem(SK,JSON.stringify(S.sheets.map(s=>({filename:s.filename,month:s.month,rows:s.rows}))));}catch(e){}};
-const loadLocal=()=>{try{const r=localStorage.getItem(SK);return r?JSON.parse(r):null;}catch(e){return null;}};
-
-/* ── EXPORT / IMPORT ── */
-function exportJSON(){
-  const blob=new Blob([JSON.stringify(S.sheets.map(s=>({filename:s.filename,month:s.month,rows:s.rows})),null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kdp-royalty-backup.json';a.click();
-  toast('Backup downloaded ✓','ok');
-}
-
-async function importJSON(file){
-  const r=new FileReader();
-  r.onload=async e=>{
-    try{
-      const data=JSON.parse(e.target.result);
-      if(!Array.isArray(data))throw new Error('Invalid format');
-      const names=new Set(S.sheets.map(s=>s.filename));
-      let added=0;
-      for(const item of data){if(!names.has(item.filename)){S.sheets.push(item);added++;}}
-      if(!added){toast('No new reports found in backup','info');return;}
-      S.agg=aggregate(S.sheets);saveLocal();
-      if(SB){loading(true,'Pushing to Supabase...');for(const s of S.sheets)await pushToSB(s);loading(false);}
-      showDash();toast(`Imported ${added} report${added!==1?'s':''}  ✓`,'ok');
-    }catch(err){toast('Import failed: '+err.message,'err');}
-  };
-  r.readAsText(file);
-}
-
-function clearAll(){
-  if(!confirm('Clear all data and start over?'))return;
-  localStorage.removeItem(SK);S={sheets:[],agg:null,filter:'All',sort:'earn'};
-  Object.values(CH).forEach(c=>c.destroy());CH={};
-  $$('dash').style.display='none';$$('upload').style.display='flex';
-  updateSyncBar();renderReportsList();
-}
-
-function renderReportsList(){
-  const el=$$('reports-list');
-  if(!S.sheets.length){el.innerHTML='<p class="hint">No reports loaded.</p>';return;}
-  el.innerHTML=S.sheets.map(s=>`
-    <div class="report-row">
-      <div class="report-info">
-        <div class="report-month">${s.month}</div>
-        <div class="report-file">${s.filename}</div>
-      </div>
-      <button class="del-btn" onclick="deleteReport('${s.filename.replace(/'/g,"\\'")}')">✕ Remove</button>
-    </div>`).join('');
-}
-
-async function deleteReport(filename){
-  S.sheets=S.sheets.filter(s=>s.filename!==filename);
-  if(SB){
-    try{await SB.from('kdp_reports').delete().eq('filename',filename);}
-    catch(e){console.warn('SB delete failed:',e);}
+// If already logged in, swap CTA to go to dashboard
+(async()=>{
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){
+    document.getElementById('nav-cta').textContent='Go to Dashboard';
+    document.getElementById('nav-cta').href='/app.html';
+    document.getElementById('hero-cta').textContent='Go to Dashboard';
+    document.getElementById('hero-cta').href='/app.html';
   }
-  if(!S.sheets.length){
-    localStorage.removeItem(SK);S.agg=null;
-    Object.values(CH).forEach(c=>c.destroy());CH={};
-    $$('dash').style.display='none';$$('upload').style.display='flex';
-    closeSettings();toast('All reports removed','info');return;
-  }
-  S.agg=aggregate(S.sheets);saveLocal();
-  renderAll();updateFilters();
-  $$('meta').textContent=`${S.sheets.length} file${S.sheets.length!==1?'s':''} · ${S.agg.bookArr.length} books · ${S.agg.aliasArr.length} aliases`;
-  renderReportsList();
-  toast(`Removed ${filename.split('-')[0]}...`,'ok');
-}
-
-/* ── KDP PARSER ── */
-// Collapse all whitespace variants — fixes 'Cal  Merritt' double-space in KDP exports
-function normStr(s){return String(s||'').replace(/[\u00a0\u2000-\u200b\u202f\u205f\s]+/g,' ').trim();}
-
-function parseMonthFromFilename(name){
-  // KDP filename pattern: KDP_Prior_Month_Royalties-2026-04-01-...xlsx
-  const m=name.match(/(\d{4})-(\d{2})-\d{2}/);
-  if(m)return new Date(+m[1],+m[2]-1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
-  return new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
-}
-
-/*
-  Amazon KDP Prior Month Royalties format:
-  Row 0: ['Sales Period', 'April 2026', null, ...]   ← metadata, month in cell B1
-  Row 1: ['Title','Author','ASIN/ISBN','Marketplace','Units Sold','Units Refunded',
-          'Net Units Sold or KENP Read**','Royalty Type','Payout Plan','Currency',...,'Earnings']
-  Best sheet: 'Total Earnings' (combines eBook + KENP + Paperback + Hardcover)
-*/
-function parseKDP(buf,filename){
-  const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
-
-  if(!wb.SheetNames.includes('Total Earnings')){
-    toast('This doesn\'t look like a Prior Month Royalties report. Please download it from KDP → Reports → Prior Month Royalties.','err',7000);
-    return null;
-  }
-
-  const ws=wb.Sheets['Total Earnings'];
-  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  if(!raw||raw.length<2) return null;
-
-  // Month is in row 0, cell B (index 1): e.g. "April 2026"
-  const monthCell=raw[0]?.[1];
-  const month=monthCell?normStr(String(monthCell)):parseMonthFromFilename(filename);
-
-  // Row 1 = real column headers, data starts row 2
-  const rows=XLSX.utils.sheet_to_json(ws,{range:1,defval:''});
-  const norm=rows.map(r=>({
-    title:      normStr(r['Title']),
-    author:     normStr(r['Author']),
-    asin:       normStr(r['ASIN/ISBN']||r['ASIN']),
-    market:     normStr(r['Marketplace']),
-    netUnits:   toNum(r['Net Units Sold or KENP Read**']||r['Net Units Sold']),
-    payoutPlan: normStr(r['Payout Plan']||r['Transaction Type']),
-    earnings:   toNum(r['Earnings']||r['Royalty']),
-  })).filter(r=>r.title&&r.author);
-
-  return{filename,month,rows:norm};
-}
-
-function toNum(v){
-  if(!v||v==='N/A')return 0;
-  const n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));
-  return isNaN(n)?0:n;
-}
-
-/* ── AGGREGATION ── */
-function sortMonths(keys){
-  return[...keys].sort((a,b)=>{
-    const da=new Date(a+' 1'),db=new Date(b+' 1');
-    if(!isNaN(da)&&!isNaN(db))return da-db;
-    const[am,ay]=a.split(' '),[bm,by]=b.split(' ');
-    if(ay!==by)return+ay-+by;
-    return MO.indexOf(am)-MO.indexOf(bm);
-  });
-}
-
-function aggregate(sheets){
-  let totalEarn=0,totalUnits=0,totalKENP=0;
-  const alias={},book={},market={},month={},aMe={},aMu={},aMk={};
-
-  for(const sh of sheets){
-    const mo=sh.month;
-    for(const r of sh.rows){
-      const isK=r.payoutPlan.toLowerCase().includes('kenp')||r.payoutPlan.toLowerCase().includes('kindle edition normalized');
-      const earn=r.earnings,units=isK?0:r.netUnits,kenp=isK?r.netUnits:0;
-      const T=r.title,A=r.author,M=r.market||'Unknown';
-      totalEarn+=earn;totalUnits+=units;totalKENP+=kenp;
-
-      alias[A]=alias[A]||{earn:0,units:0,kenp:0,books:new Set()};
-      alias[A].earn+=earn;alias[A].units+=units;alias[A].kenp+=kenp;alias[A].books.add(T);
-
-      const bk=T+'|||'+A;
-      book[bk]=book[bk]||{title:T,author:A,earn:0,units:0,kenp:0};
-      book[bk].earn+=earn;book[bk].units+=units;book[bk].kenp+=kenp;
-
-      market[M]=(market[M]||0)+earn;
-      month[mo]=(month[mo]||0)+earn;
-      aMe[A]=aMe[A]||{};aMe[A][mo]=(aMe[A][mo]||0)+earn;
-      aMu[A]=aMu[A]||{};aMu[A][mo]=(aMu[A][mo]||0)+units;
-      aMk[A]=aMk[A]||{};aMk[A][mo]=(aMk[A][mo]||0)+kenp;
-    }
-  }
-
-  const aliasArr=Object.entries(alias).map(([n,d])=>({name:n,earn:d.earn,units:d.units,kenp:d.kenp,books:d.books.size})).sort((a,b)=>b.earn-a.earn);
-  const bookArr=Object.values(book).sort((a,b)=>b.earn-a.earn);
-  const marketArr=Object.entries(market).map(([n,e])=>({name:n,earn:e})).sort((a,b)=>b.earn-a.earn);
-  const mKeys=sortMonths(Object.keys(month));
-  const monthArr=mKeys.map(m=>({month:m,earn:month[m]}));
-  const mkT=byA=>mKeys.map(m=>{const pt={month:m};aliasArr.forEach(({name})=>{pt[name]=byA[name]?.[m]||0;});return pt;});
-  return{totalEarn,totalUnits,totalKENP,aliasArr,bookArr,marketArr,monthArr,
-    trendsEarn:mkT(aMe),trendsUnits:mkT(aMu),trendsKENP:mkT(aMk),topAlias:aliasArr[0]?.name||'—'};
-}
-
-const f$=n=>'$'+(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-const fN=n=>(+n||0).toLocaleString('en-US');
-
-/* ── CHARTS ── */
-Chart.defaults.color='#7c7a98';
-const TF={family:"'JetBrains Mono',monospace",size:10},GC='#252338';
-function dc(id){if(CH[id]){CH[id].destroy();delete CH[id];}}
-function mkLeg(id,aliasArr){$$(id).innerHTML=aliasArr.map((a,i)=>`<span class="leg-i"><span class="leg-dot" style="background:${COLORS[i%COLORS.length]}"></span>${a.name}</span>`).join('');}
-
-function renderOverview(){
-  const{agg}=S;
-  $$('k-earn').textContent=f$(agg.totalEarn);$$('k-earn-s').textContent=fN(agg.monthArr.length)+' month'+(agg.monthArr.length!==1?'s':'');
-  $$('k-units').textContent=fN(agg.totalUnits);$$('k-units-s').textContent=fN(agg.bookArr.length)+' titles';
-  $$('k-kenp').textContent=fN(agg.totalKENP);$$('k-kenp-s').textContent='Kindle Unlimited pages';
-  $$('k-alias').textContent=agg.topAlias;$$('k-alias-s').textContent=f$(agg.aliasArr[0]?.earn||0)+' total';
-
-  dc('monthly');
-  CH['monthly']=new Chart($$('ch-monthly'),{type:'line',
-    data:{labels:agg.monthArr.map(m=>m.month),datasets:[{label:'Earnings',data:agg.monthArr.map(m=>m.earn),
-      borderColor:'#c9a44a',backgroundColor:'rgba(201,164,74,0.07)',fill:true,tension:0.35,pointRadius:5,pointBackgroundColor:'#c9a44a',borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+f$(ctx.parsed.y)}}},
-      scales:{x:{ticks:{font:TF,autoSkip:false,maxRotation:35},grid:{color:GC}},y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
-
-  // Month-over-month cards + bar chart
-  const maxEarn=Math.max(...agg.monthArr.map(m=>m.earn));
-  $$('mom-cards').innerHTML=agg.monthArr.map((m,i)=>{
-    const prev=agg.monthArr[i-1];
-    const delta=prev&&prev.earn>0?((m.earn-prev.earn)/prev.earn*100):null;
-    const isBest=m.earn===maxEarn;
-    let deltaHtml='<span class="mom-delta neutral">first month</span>';
-    if(delta!==null){
-      const cls=delta>=0?'up':'down';
-      const arrow=delta>=0?'↑':'↓';
-      deltaHtml=`<span class="mom-delta ${cls}">${arrow} ${Math.abs(delta).toFixed(1)}%</span>`;
-    }
-    return`<div class="mom-card${isBest?' best':''}">
-      <div class="mom-month">${m.month}</div>
-      <div class="mom-earn">${f$(m.earn)}</div>
-      ${deltaHtml}
-    </div>`;
-  }).join('');
-
-  dc('mom-bar');
-  const barColors=agg.monthArr.map(m=>m.earn===maxEarn?'#c9a44a':'rgba(201,164,74,0.35)');
-  CH['mom-bar']=new Chart($$('ch-mom-bar'),{type:'bar',
-    data:{labels:agg.monthArr.map(m=>m.month),datasets:[{
-      label:'Earnings',data:agg.monthArr.map(m=>m.earn),
-      backgroundColor:barColors,borderRadius:5,borderWidth:0
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+f$(ctx.parsed.y)}}},
-      scales:{x:{ticks:{font:TF,autoSkip:false,maxRotation:35},grid:{display:false}},
-              y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
-
-  dc('alias');
-  $$('leg-alias').innerHTML=agg.aliasArr.map((a,i)=>`<span class="leg-i"><span class="leg-dot" style="background:${COLORS[i%COLORS.length]}"></span>${a.name} ${f$(a.earn)}</span>`).join('');
-  CH['alias']=new Chart($$('ch-alias'),{type:'doughnut',
-    data:{labels:agg.aliasArr.map(a=>a.name),datasets:[{data:agg.aliasArr.map(a=>a.earn),backgroundColor:agg.aliasArr.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,hoverOffset:8}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${f$(ctx.raw)} (${agg.totalEarn>0?(ctx.raw/agg.totalEarn*100).toFixed(1):0}%)`}}}}});
-
-  dc('market');const t6=agg.marketArr.slice(0,6);
-  CH['market']=new Chart($$('ch-market'),{type:'bar',
-    data:{labels:t6.map(m=>m.name),datasets:[{label:'Earnings',data:t6.map(m=>m.earn),backgroundColor:t6.map((_,i)=>COLORS[(i+2)%COLORS.length]),borderRadius:4,borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+f$(ctx.parsed.y)}}},
-      scales:{x:{ticks:{font:TF},grid:{display:false}},y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
-}
-
-function renderAliases(){
-  const{agg}=S;dc('alias-bar');
-  const hh=Math.max(100,agg.aliasArr.length*54+50);$$('hbar-wrap').style.height=hh+'px';
-  CH['alias-bar']=new Chart($$('ch-alias-bar'),{type:'bar',
-    data:{labels:agg.aliasArr.map(a=>a.name),datasets:[
-      {label:'Earnings',data:agg.aliasArr.map(a=>a.earn),backgroundColor:agg.aliasArr.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderWidth:0},
-      {label:'Units',data:agg.aliasArr.map(a=>a.units),backgroundColor:agg.aliasArr.map((_,i)=>COLORS[i%COLORS.length]+'44'),borderRadius:4,borderWidth:0}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?' Earnings: '+f$(ctx.raw):' Units: '+fN(ctx.raw)}}},
-      scales:{x:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}},y:{ticks:{font:{family:"'JetBrains Mono',monospace",size:11}},grid:{display:false}}}}});
-
-  $$('alias-grid').innerHTML=agg.aliasArr.map((a,i)=>`
-    <div class="alias-card" style="--c:${COLORS[i%COLORS.length]}">
-      <div class="alias-name">${a.name}</div>
-      <div class="a-stat"><span class="a-sl">Earnings</span><span class="a-sv" style="color:${COLORS[i%COLORS.length]}">${f$(a.earn)}</span></div>
-      <div class="a-stat"><span class="a-sl">Units Sold</span><span class="a-sv">${fN(a.units)}</span></div>
-      <div class="a-stat"><span class="a-sl">KENP Pages</span><span class="a-sv">${fN(a.kenp)}</span></div>
-      <div class="a-stat"><span class="a-sl">Titles</span><span class="a-sv">${a.books}</span></div>
-      <div class="a-stat"><span class="a-sl">Avg / Title</span><span class="a-sv">${a.books>0?f$(a.earn/a.books):'—'}</span></div>
-      <div class="a-stat"><span class="a-sl">% of Total</span><span class="a-sv">${agg.totalEarn>0?(a.earn/agg.totalEarn*100).toFixed(1)+'%':'—'}</span></div>
-    </div>`).join('');
-}
-
-function renderBooks(){
-  const{agg,filter,sort}=S;
-  let books=filter==='All'?[...agg.bookArr]:agg.bookArr.filter(b=>b.author===filter);
-  if(sort==='units')books.sort((a,z)=>z.units-a.units);
-  else if(sort==='kenp')books.sort((a,z)=>z.kenp-a.kenp);
-  else books.sort((a,z)=>z.earn-a.earn);
-  $$('book-meta').textContent=books.length+' title'+(books.length!==1?'s':'');
-  const cm={};agg.aliasArr.forEach((a,i)=>cm[a.name]=COLORS[i%COLORS.length]);
-  $$('book-tbody').innerHTML=books.map((b,i)=>{
-    const pct=agg.totalEarn>0?(b.earn/agg.totalEarn*100).toFixed(1):0;
-    const c=cm[b.author]||COLORS[0];
-    return`<tr><td class="td-mono td-dim" style="font-size:11px">${i+1}</td>
-      <td style="font-size:15px">${b.title}</td>
-      <td><span class="td-alias" style="background:${c}22;color:${c}">${b.author}</span></td>
-      <td class="td-mono">${fN(b.units)}</td><td class="td-mono td-dim">${fN(b.kenp)}</td>
-      <td class="td-mono td-gold">${f$(b.earn)}</td>
-      <td><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${pct}%</div>
-          <div class="bar-mini" style="width:${Math.max(2,pct)}%;background:${c}"></div></td></tr>`;
-  }).join('');
-}
-
-function mkStackedBar(id,data,aliasArr,labelCb){
-  dc(id);
-  return new Chart($$(id),{type:'bar',
-    data:{labels:data.map(t=>t.month),datasets:aliasArr.map((a,i)=>({label:a.name,data:data.map(t=>t[a.name]||0),backgroundColor:COLORS[i%COLORS.length]+'bb',borderRadius:3,borderWidth:0}))},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${labelCb(ctx.raw)}`}}},
-      scales:{x:{stacked:true,ticks:{font:TF,autoSkip:false,maxRotation:35},grid:{display:false}},y:{stacked:true,ticks:{font:TF},grid:{color:GC}}}}});
-}
-
-function renderTrends(){
-  const{agg}=S;
-  mkLeg('leg-te',agg.aliasArr);mkLeg('leg-tu',agg.aliasArr);mkLeg('leg-tk',agg.aliasArr);
-
-  dc('ch-te');
-  CH['ch-te']=new Chart($$('ch-te'),{type:'line',
-    data:{labels:agg.trendsEarn.map(t=>t.month),datasets:agg.aliasArr.map((a,i)=>({label:a.name,data:agg.trendsEarn.map(t=>t[a.name]||0),borderColor:COLORS[i%COLORS.length],backgroundColor:'transparent',tension:0.3,pointRadius:4,borderWidth:2}))},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${f$(ctx.raw)}`}}},
-      scales:{x:{ticks:{font:TF,autoSkip:false,maxRotation:35},grid:{color:GC}},y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
-
-  CH['ch-tu']=mkStackedBar('ch-tu',agg.trendsUnits,agg.aliasArr,fN);
-  CH['ch-tk']=mkStackedBar('ch-tk',agg.trendsKENP,agg.aliasArr,n=>fN(n)+' pages');
-}
-
-function renderAll(){renderOverview();renderAliases();renderBooks();renderTrends();renderGenres();renderGoals();}
-
-function updateFilters(){
-  const sel=$$('alias-filter'),cur=sel.value;
-  sel.innerHTML='<option value="All">All Pen Names</option>'+S.agg.aliasArr.map(a=>`<option value="${a.name}">${a.name}</option>`).join('');
-  if(S.agg.aliasArr.find(a=>a.name===cur))sel.value=cur;else S.filter='All';
-}
-
-function showDash(){
-  $$('upload').style.display='none';$$('dash').style.display='block';
-  const a=S.agg;
-  $$('meta').textContent=`${S.sheets.length} file${S.sheets.length!==1?'s':''} · ${a.bookArr.length} books · ${a.aliasArr.length} aliases`;
-  updateFilters();renderAll();updateSyncBar();
-}
-
-/* ── FILE INGESTION ── */
-async function addFiles(fileList){
-  const files=Array.from(fileList).filter(f=>/\.(xlsx|xls)$/i.test(f.name));
-  if(!files.length){toast('Please upload .xlsx files','err');return;}
-  loading(true,'Parsing reports...');
-  const names=new Set(S.sheets.map(s=>s.filename));let added=0;
-  try{
-    for(const file of files){
-      if(names.has(file.name)){toast('Already loaded: '+file.name,'info');continue;}
-      const buf=await file.arrayBuffer();
-      const sheet=parseKDP(buf,file.name);
-      if(!sheet){toast('Could not parse: '+file.name,'err');continue;}
-      S.sheets.push(sheet);added++;
-    }
-    if(!added)return;
-    S.agg=aggregate(S.sheets);saveLocal();
-    if(SB){loading(true,'Syncing to Supabase...');for(const s of S.sheets)await pushToSB(s);}
-    showDash();
-    toast(`Loaded ${added} report${added!==1?'s':''}. ${S.agg.monthArr.length} month${S.agg.monthArr.length!==1?'s':''} total.`,'ok');
-  }finally{loading(false);}
-}
-
-/* ── BOOT ── */
-(async function boot(){
-  const saved=loadLocal();
-  if(saved?.length){S.sheets=saved;S.agg=aggregate(S.sheets);showDash();}
-  const cfg=getSBCfg();
-  if(cfg&&initSBClient(cfg.url,cfg.key)){setConnected(true);await pullFromSB();}
-  else setConnected(false);
 })();
 
-/* ── EVENTS ── */
-const dz=$$('drop');
-dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
-dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
-dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');addFiles(e.dataTransfer.files);});
-$$('fi').addEventListener('change',e=>{addFiles(e.target.files);e.target.value='';});
-$$('add-fi').addEventListener('change',e=>{addFiles(e.target.files);e.target.value='';});
-$$('import-fi-d').addEventListener('change',e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value='';});
-$$('import-fi-u').addEventListener('change',e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value='';});
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    const t=document.querySelector(a.getAttribute('href'));
+    if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth'});}
+  });
+});
 
-document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');$$('tab-'+b.dataset.tab).classList.add('active');
-}));
-document.querySelectorAll('.sort-btn').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('.sort-btn').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on');S.sort=b.dataset.sort;renderBooks();
-}));
-$$('alias-filter').addEventListener('change',e=>{S.filter=e.target.value;renderBooks();});
+// Nav shadow on scroll
+window.addEventListener('scroll',()=>{
+  document.getElementById('nav').style.boxShadow=window.scrollY>20?'0 4px 40px rgba(0,0,0,.4)':'none';
+});
 
-/* ── GENRE TAGGING ── */
-function loadGenres(){try{const r=localStorage.getItem(SK_GENRES);return r?JSON.parse(r):{};}catch(e){return{};}}
-function saveGenres(g){try{localStorage.setItem(SK_GENRES,JSON.stringify(g));}catch(e){}}
-function loadGoals(){try{const r=localStorage.getItem(SK_GOALS);return r?JSON.parse(r):{};}catch(e){return{};}}
-function saveGoals(g){try{localStorage.setItem(SK_GOALS,JSON.stringify(g));}catch(e){}}
-
-genres=loadGenres();
-goals=loadGoals();
-
-// Global functions called from inline onclick — reliable with any content
-window.setGenrePreset=function(idx,genre){
-  const b=S.agg&&S.agg.bookArr[idx];
-  if(!b)return;
-  genres[b.title+'|||'+b.author]=genre;
-  saveGenres(genres);
-  renderGenres();
-};
-
-window.saveCustomGenre=function(inputEl){
-  const idx=+inputEl.dataset.idx;
-  const b=S.agg&&S.agg.bookArr[idx];
-  if(!b)return;
-  genres[b.title+'|||'+b.author]=inputEl.value.trim();
-  saveGenres(genres);
-  renderGenres();
-};
-
-window.setOverallGoal=function(){
-  const inp=$$('overall-goal-input');
-  if(!inp)return;
-  const val=parseFloat(inp.value)||0;
-  goals['_overall']=val;
-  saveGoals(goals);
-  renderGoals();
-  toast(val>0?`Overall goal set to ${f$(val)}`:'Overall goal cleared','ok');
-};
-
-window.setAliasGoal=function(i){
-  const inp=document.querySelector(`.goal-set-input[data-alias="${i}"]`);
-  const a=S.agg&&S.agg.aliasArr[i];
-  if(!inp||!a)return;
-  const val=parseFloat(inp.value)||0;
-  goals[a.name]=val;
-  saveGoals(goals);
-  renderGoals();
-  toast(val>0?`Goal set: ${a.name} → ${f$(val)}/mo`:`Goal cleared for ${a.name}`,'ok');
-};
-
-function renderGenres(){
-  const{agg}=S;if(!agg)return;
-
-  const genreEarn={};
-  for(const b of agg.bookArr){
-    const g=genres[b.title+'|||'+b.author]||'Untagged';
-    genreEarn[g]=(genreEarn[g]||0)+b.earn;
-  }
-  const genreArr=Object.entries(genreEarn).map(([name,earn])=>({name,earn})).sort((a,b)=>b.earn-a.earn);
-
-  $$('leg-genre').innerHTML=genreArr.map((g,i)=>`<span class="leg-i"><span class="leg-dot" style="background:${COLORS[i%COLORS.length]}"></span>${g.name} ${f$(g.earn)}</span>`).join('');
-
-  dc('genre-bar');
-  CH['genre-bar']=new Chart($$('ch-genre-bar'),{type:'bar',
-    data:{labels:genreArr.map(g=>g.name),datasets:[{label:'Earnings',data:genreArr.map(g=>g.earn),backgroundColor:genreArr.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+f$(ctx.parsed.y)}}},
-      scales:{x:{ticks:{font:TF},grid:{display:false}},y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
-
-  dc('genre-pie');
-  CH['genre-pie']=new Chart($$('ch-genre-pie'),{type:'doughnut',
-    data:{labels:genreArr.map(g=>g.name),datasets:[{data:genreArr.map(g=>g.earn),backgroundColor:genreArr.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,hoverOffset:8}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${f$(ctx.raw)}`}}}}});
-
-  const cm={};agg.aliasArr.forEach((a,i)=>cm[a.name]=COLORS[i%COLORS.length]);
-  $$('genre-tbody').innerHTML=agg.bookArr.map((b,idx)=>{
-    const bk=b.title+'|||'+b.author;
-    const assigned=genres[bk]||'';
-    const c=cm[b.author]||COLORS[0];
-    const presets=GENRE_PRESETS.map(p=>`<span class="genre-tag${assigned===p?' assigned':''}" onclick="setGenrePreset(${idx},'${p}')">${p}</span>`).join('');
-    return`<tr>
-      <td style="font-size:14px">${b.title}</td>
-      <td><span class="td-alias" style="background:${c}22;color:${c}">${b.author}</span></td>
-      <td>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${presets}</div>
-        <input class="genre-input" type="text" placeholder="Custom genre — press Enter" data-idx="${idx}" value="${assigned}" onkeydown="if(event.key==='Enter')saveCustomGenre(this)">
-      </td>
-      <td class="td-mono td-gold">${f$(b.earn)}</td>
-    </tr>`;
-  }).join('');
-}
-
-/* ── GOAL TRACKER ── */
-function renderGoals(){
-  const{agg}=S;if(!agg||!agg.monthArr.length)return;
-  const latestMonth=agg.monthArr[agg.monthArr.length-1];
-  const overallGoal=goals['_overall']||0;
-  const overallPct=overallGoal>0?Math.min((latestMonth.earn/overallGoal)*100,100):0;
-  const overallAchieved=latestMonth.earn>=overallGoal&&overallGoal>0;
-
-  $$('goal-overall-content').innerHTML=`
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
-      <div>
-        <div style="font-size:28px;font-weight:300;color:var(--${overallAchieved?'green':'gold'})">${f$(latestMonth.earn)}</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px">${latestMonth.month}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">Monthly Goal</div>
-        <div style="font-size:20px;font-weight:300">${overallGoal>0?f$(overallGoal):'Not set'}</div>
-      </div>
-    </div>
-    <div class="goal-bar-wrap"><div class="goal-bar${overallAchieved?' achieved':''}" style="width:${overallPct}%"></div></div>
-    <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:6px;margin-bottom:16px;">
-      <span style="color:var(--${overallAchieved?'green':'muted'})">${overallAchieved?'🎉 Goal achieved!':overallGoal>0?f$(overallGoal-latestMonth.earn)+' remaining':''}</span>
-      <span style="color:var(--muted)">${overallGoal>0?overallPct.toFixed(0)+'% of goal':''}</span>
-    </div>
-    <div class="goal-set-row">
-      <input class="goal-set-input" id="overall-goal-input" type="number" min="0" step="10" placeholder="Set overall monthly goal ($)..." value="${overallGoal||''}">
-      <button class="goal-set-btn" onclick="setOverallGoal()">Set Goal</button>
-    </div>`;
-
-  $$('goal-grid').innerHTML=agg.aliasArr.map((a,i)=>{
-    const earn=agg.trendsEarn[agg.trendsEarn.length-1]?.[a.name]||0;
-    const g=goals[a.name]||0;
-    const pct=g>0?Math.min((earn/g)*100,100):0;
-    const achieved=g>0&&earn>=g;
-    return`<div class="goal-card${achieved?' achieved':''}">
-      <div class="goal-name" style="color:${COLORS[i%COLORS.length]}">${a.name}</div>
-      <div class="goal-period">${latestMonth.month}</div>
-      <div class="goal-bar-wrap"><div class="goal-bar${achieved?' achieved':''}" style="width:${pct}%"></div></div>
-      <div class="goal-stats">
-        <span class="goal-earned">${f$(earn)}</span>
-        <span class="goal-pct${achieved?' achieved':''}">${g>0?pct.toFixed(0)+'% of goal':'No goal set'}</span>
-      </div>
-      <div class="goal-set-row">
-        <input class="goal-set-input" type="number" min="0" step="10" placeholder="Monthly goal ($)..." data-alias="${i}" value="${g||''}">
-        <button class="goal-set-btn" onclick="setAliasGoal(${i})">Set</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  dc('goal-history');
-  const goalLine=agg.monthArr.map(()=>overallGoal||null);
-  CH['goal-history']=new Chart($$('ch-goal-history'),{type:'bar',
-    data:{labels:agg.monthArr.map(m=>m.month),datasets:[
-      {label:'Earnings',data:agg.monthArr.map(m=>m.earn),
-        backgroundColor:agg.monthArr.map(m=>m.earn>=(overallGoal||Infinity)?'rgba(52,211,153,.7)':'rgba(201,164,74,.6)'),
-        borderRadius:4,borderWidth:0,order:2},
-      {label:'Goal',data:goalLine,type:'line',borderColor:'rgba(201,164,74,.5)',
-        borderDash:[6,3],borderWidth:2,pointRadius:0,fill:false,order:1,tension:0}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>
-        ctx.dataset.label==='Goal'?` Goal: ${f$(ctx.raw||0)}`:` Earnings: ${f$(ctx.parsed.y)}`}}},
-      scales:{x:{ticks:{font:TF,autoSkip:false,maxRotation:35},grid:{display:false}},
-              y:{ticks:{font:TF,callback:v=>'$'+v.toLocaleString()},grid:{color:GC}}}}});
-}
-function toggleTheme(){
-  const isDark=document.documentElement.getAttribute('data-theme')!=='light';
-  document.documentElement.setAttribute('data-theme',isDark?'light':'dark');
-  $$('theme-btn').textContent=isDark?'🌙':'☀️';
-  localStorage.setItem('kdp_theme',isDark?'light':'dark');
-  // Redraw charts with new colors
-  if(S.agg) renderAll();
-}
-// Restore saved theme
-const savedTheme=localStorage.getItem('kdp_theme');
-if(savedTheme==='light'){
-  document.documentElement.setAttribute('data-theme','light');
-  document.addEventListener('DOMContentLoaded',()=>{const b=$$('theme-btn');if(b)b.textContent='☀️';});
-}
+// Animate on scroll
+const obs=new IntersectionObserver(entries=>entries.forEach(e=>{
+  if(e.isIntersecting){e.target.style.opacity='1';e.target.style.transform='translateY(0)';}
+}),{threshold:.1});
+document.querySelectorAll('.feature-card,.unique-card,.price-card').forEach(el=>{
+  el.style.opacity='0';el.style.transform='translateY(20px)';
+  el.style.transition='opacity .5s ease,transform .5s ease';
+  obs.observe(el);
+});
 </script>
 </body>
 </html>
