@@ -68,12 +68,12 @@ let currentUser=null;
   if(!session){window.location.href='/login.html';return;}
   currentUser=session.user;
 
-  // If they somehow have an active sub, send them to app
+  // Only redirect to app if they have a genuinely active paid subscription
   const{data:sub}=await sb.from('kdp_subscribers').select('status,trial_ends_at').eq('user_id',currentUser.id).single();
-  if(sub){
-    if(sub.status==='active') window.location.href='/app.html';
-    if(sub.status==='trialing'&&new Date(sub.trial_ends_at)>new Date()) window.location.href='/app.html';
+  if(sub && sub.status==='active'){
+    window.location.href='/app.html';
   }
+  // Otherwise stay on this page — trial expired or no sub
 })();
 
 async function subscribe(){
