@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -415,6 +415,9 @@ create policy "allow_all" on kdp_reports
 const COLORS=['#c9a44a','#7b61ff','#34d399','#e87c6a','#60a5fa','#f472b6','#a78bfa','#fb923c','#2dd4bf'];
 const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const SK='kdp_v3',SK_SB='kdp_sb_config';
+const GENRE_PRESETS=['Thriller','Romance','Dark Fantasy','Sci-Fi','Mystery','Horror','Literary','Non-Fiction','Cozy Mystery','Suspense','Historical Fiction','Action'];
+const SK_GENRES='kdp_genres_v1';
+const SK_GOALS='kdp_goals_v1';
 let S={sheets:[],agg:null,filter:'All',sort:'earn'};
 let CH={},SB=null;
 let genres={},goals={};
@@ -888,10 +891,6 @@ document.querySelectorAll('.sort-btn').forEach(b=>b.addEventListener('click',()=
 $$('alias-filter').addEventListener('change',e=>{S.filter=e.target.value;renderBooks();});
 
 /* ── GENRE TAGGING ── */
-const GENRE_PRESETS=['Thriller','Romance','Dark Fantasy','Sci-Fi','Mystery','Horror','Literary','Non-Fiction','Cozy Mystery','Suspense','Historical Fiction','Action'];
-const SK_GENRES='kdp_genres_v1';
-const SK_GOALS='kdp_goals_v1';
-
 function loadGenres(){try{const r=localStorage.getItem(SK_GENRES);return r?JSON.parse(r):{};}catch(e){return{};}}
 function saveGenres(g){try{localStorage.setItem(SK_GENRES,JSON.stringify(g));}catch(e){}}
 function loadGoals(){try{const r=localStorage.getItem(SK_GOALS);return r?JSON.parse(r):{};}catch(e){return{};}}
