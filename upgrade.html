@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KDP Tracker — Upgrade</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--bg:#080810;--surf:#0f0f1a;--card:#141422;--bord:#1e1e30;--gold:#c9a44a;--gold2:#e8c87a;--gold-dim:rgba(201,164,74,.1);--txt:#f0ebe0;--muted:#6e6c88;--dim:#2a2840;--green:#34d399;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;}
+.glow{position:fixed;top:30%;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(201,164,74,.1) 0%,transparent 70%);pointer-events:none;}
+.eye{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:4px;color:var(--gold);text-transform:uppercase;margin-bottom:20px;}
+h1{font-family:'Playfair Display',serif;font-size:clamp(36px,5vw,60px);font-weight:900;line-height:1.1;margin-bottom:12px;}
+h1 em{font-style:italic;color:var(--gold);}
+.sub{font-size:17px;color:var(--muted);max-width:420px;margin:0 auto 48px;line-height:1.7;}
+.price-card{background:var(--card);border:1px solid var(--gold);border-radius:20px;padding:44px;max-width:420px;width:100%;position:relative;overflow:hidden;margin-bottom:20px;}
+.price-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.price{font-family:'Playfair Display',serif;font-size:64px;font-weight:900;color:var(--gold);line-height:1;}
+.price-period{font-size:16px;color:var(--muted);margin-bottom:28px;}
+.features{list-style:none;text-align:left;margin-bottom:32px;display:flex;flex-direction:column;gap:10px;}
+.features li{display:flex;align-items:center;gap:10px;font-size:14px;}
+.features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;}
+.cta{width:100%;background:var(--gold);color:#1a1400;border:none;border-radius:8px;padding:14px;font-size:17px;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:8px;}
+.cta:hover{background:var(--gold2);}
+.cta:disabled{opacity:.5;cursor:not-allowed;}
+.note{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.logout-link{margin-top:24px;font-size:13px;color:var(--muted);cursor:pointer;text-decoration:underline;}
+.logout-link:hover{color:var(--txt);}
+.err{font-family:'JetBrains Mono',monospace;font-size:12px;color:#f87171;margin-top:12px;display:none;}
+.err.show{display:block;}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="eye">KDP Tracker</div>
+<h1>Your trial has<br><em>ended.</em></h1>
+<p class="sub">Subscribe to keep access to your dashboard, your data, and every feature we ship next.</p>
+
+<div class="price-card">
+  <div class="price">$5</div>
+  <div class="price-period">per month · cancel anytime</div>
+  <ul class="features">
+    <li>All pen names &amp; books</li>
+    <li>Unlimited report uploads</li>
+    <li>Cloud sync across devices</li>
+    <li>Genre tagging &amp; goal tracker</li>
+    <li>Every new feature as it ships</li>
+  </ul>
+  <button class="cta" id="subscribe-btn" onclick="subscribe()">Subscribe Now</button>
+  <div class="note">Secure payment via Stripe</div>
+  <div class="err" id="err-msg"></div>
+</div>
+
+<span class="logout-link" onclick="logout()">Sign out</span>
+
+<script>
+const SUPABASE_URL='https://oieyaymfflvznviyeprc.supabase.co';
+const SUPABASE_KEY='sb_publishable_0o8nigeqxU6zKyEzHDujtg_gLwjExWi';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let currentUser=null;
+
+(async()=>{
+  const{data:{session}}=await sb.auth.getSession();
+  if(!session){window.location.href='/login.html';return;}
+  currentUser=session.user;
+
+  // If they somehow have an active sub, send them to app
+  const{data:sub}=await sb.from('kdp_subscribers').select('status,trial_ends_at').eq('user_id',currentUser.id).single();
+  if(sub){
+    if(sub.status==='active') window.location.href='/app.html';
+    if(sub.status==='trialing'&&new Date(sub.trial_ends_at)>new Date()) window.location.href='/app.html';
+  }
+})();
+
+async function subscribe(){
+  if(!currentUser)return;
+  const btn=document.getElementById('subscribe-btn');
+  btn.disabled=true;btn.textContent='Redirecting to checkout...';
+  const err=document.getElementById('err-msg');
+  err.classList.remove('show');
+
+  try{
+    const res=await fetch('/api/create-checkout',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        user_id:currentUser.id,
+        email:currentUser.email,
+        return_url:window.location.origin
+      })
+    });
+    const data=await res.json();
+    if(data.error){err.textContent=data.error;err.classList.add('show');btn.disabled=false;btn.textContent='Subscribe Now';return;}
+    window.location.href=data.url;
+  }catch(e){
+    err.textContent='Something went wrong. Please try again.';
+    err.classList.add('show');
+    btn.disabled=false;btn.textContent='Subscribe Now';
+  }
+}
+
+async function logout(){
+  await sb.auth.signOut();
+  window.location.href='/login.html';
+}
+</script>
+</body>
+</html>

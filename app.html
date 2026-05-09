@@ -241,6 +241,7 @@ tbody td{padding:10px 12px;vertical-align:middle;}
     <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);margin-top:4px;" id="user-plan">Trial active</div>
   </div>
 
+  <button class="d-btn primary" id="subscribe-drawer-btn" onclick="goToCheckout()" style="display:none">⚡ Subscribe — $5/month</button>
   <button class="d-btn danger" onclick="handleLogout()">Sign Out</button>
 
   <div class="sec-head">Data</div>
@@ -441,17 +442,39 @@ function updateSyncBar(){
 
 async function checkPlanStatus(){
   try{
-    const{data}=await sb.from('kdp_subscribers').select('status,trial_ends_at').single();
+    const{data}=await sb.from('kdp_subscribers').select('status,trial_ends_at').eq('user_id',currentUser.id).single();
     if(!data){$$('user-plan').textContent='No subscription found';return;}
-    if(data.status==='active'){$$('user-plan').textContent='✓ Active subscription';return;}
-    if(data.status==='trialing'){
+    const subscribeBtn=$$('subscribe-drawer-btn');
+    if(data.status==='active'){
+      $$('user-plan').textContent='✓ Active subscription';
+      if(subscribeBtn)subscribeBtn.style.display='none';
+    } else if(data.status==='trialing'){
       const end=new Date(data.trial_ends_at);
       const days=Math.ceil((end-new Date())/(1000*60*60*24));
       $$('user-plan').textContent=days>0?`Trial — ${days} day${days!==1?'s':''} remaining`:'Trial expired';
-      return;
+      if(subscribeBtn)subscribeBtn.style.display='block';
+    } else {
+      $$('user-plan').textContent='Subscription: '+data.status;
+      if(subscribeBtn)subscribeBtn.style.display='block';
     }
-    $$('user-plan').textContent='Subscription: '+data.status;
   }catch(e){}
+}
+
+async function goToCheckout(){
+  if(!currentUser)return;
+  const btn=$$('subscribe-drawer-btn');
+  if(btn){btn.disabled=true;btn.textContent='Redirecting...';}
+  try{
+    const res=await fetch('/api/create-checkout',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({user_id:currentUser.id,email:currentUser.email,return_url:window.location.origin})
+    });
+    const data=await res.json();
+    if(data.url) window.location.href=data.url;
+    else toast('Could not start checkout. Please try again.','err');
+  }catch(e){toast('Something went wrong.','err');}
+  finally{if(btn){btn.disabled=false;btn.textContent='⚡ Subscribe — $5/month';}}
 }
 
 async function handleLogout(){
@@ -841,9 +864,23 @@ async function addFiles(fileList){
     currentUser=session.user;
 
     // Ensure trial record exists
-    const{data:sub}=await sb.from('kdp_subscribers').select('user_id').eq('user_id',currentUser.id).single();
+    const{data:sub}=await sb.from('kdp_subscribers').select('*').eq('user_id',currentUser.id).single();
     if(!sub){
       await sb.from('kdp_subscribers').insert({user_id:currentUser.id,status:'trialing'});
+    } else {
+      // Check if subscription is valid
+      const isActive = sub.status==='active';
+      const isTrialing = sub.status==='trialing' && new Date(sub.trial_ends_at) > new Date();
+      if(!isActive && !isTrialing){
+        window.location.href='/upgrade.html';
+        return;
+      }
+    }
+
+    // Show success toast if coming from Stripe checkout
+    if(window.location.search.includes('subscribed=true')){
+      toast('🎉 Welcome to KDP Tracker! Your subscription is active.','ok',6000);
+      history.replaceState(null,'','/app.html');
     }
 
     // Show dashboard shell immediately
